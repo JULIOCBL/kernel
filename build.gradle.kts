@@ -5,6 +5,7 @@ plugins {
     kotlin("jvm") version "2.0.21"
     `java-library`
     `maven-publish`
+    application
 }
 
 group = "kernel"
@@ -22,6 +23,15 @@ java {
     withSourcesJar()
 }
 
+sourceSets {
+    named("main") {
+        resources {
+            srcDir("src/main/kotlin")
+            include("**/*.stub")
+        }
+    }
+}
+
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_21)
@@ -35,6 +45,16 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+application {
+    mainClass.set("kernel.command.KernelCli")
+}
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "kernel.command.KernelCli"
+    }
 }
 
 publishing {

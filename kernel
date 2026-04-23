@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ "$#" -eq 0 ]; then
+  exec "$ROOT_DIR/gradlew" --quiet run
+fi
+
+escaped_args=()
+
+for arg in "$@"; do
+  escaped="${arg//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  escaped_args+=("\"$escaped\"")
+done
+
+exec "$ROOT_DIR/gradlew" --quiet run --args="${escaped_args[*]}"

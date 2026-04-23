@@ -58,6 +58,32 @@ val downSql = generator.generateDown(migration)
 val statements = generator.generateUpStatements(migration)
 ```
 
+## Generar Stubs
+
+Tambien puedes generar el codigo base de una migracion antes de guardarlo en
+disco:
+
+```kotlin
+val factory = MigrationStubFactory()
+
+val stub = factory.create(
+    MigrationStubRequest(
+        template = MigrationStubTemplate.CREATE_TABLE,
+        tableName = "users"
+    )
+)
+
+println(stub.fileName)
+println(stub.source)
+```
+
+Templates disponibles:
+
+- `BLANK`: migracion vacia con `up` y `down`.
+- `CREATE_TABLE`: crea una tabla y agrega `dropIfExists` en `down`.
+- `UPDATE_TABLE`: deja un bloque `table("...")` listo para editar.
+- `DROP_TABLE`: genera `dropIfExists` en `up` y una restauracion basica en `down`.
+
 ## Schemas Y Extensiones
 
 ```kotlin

@@ -1,0 +1,20 @@
+package {{ packageName }}
+
+/**
+ * {{ classComment }}
+ */
+class {{ className }} : Migration() {
+    /**
+     * {{ upComment }}
+     */
+    override fun up() {
+{{ upBody }}
+    }
+
+    /**
+     * {{ downComment }}
+     */
+    override fun down() {
+{{ downBody }}
+    }
+}
