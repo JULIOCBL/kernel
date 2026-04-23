@@ -1,0 +1,30 @@
+# Build output
+build/
+out/
+target/
+
+# Gradle
+.gradle/
+
+# Kotlin
+.kotlin/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Local environment files
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
