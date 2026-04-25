@@ -35,6 +35,14 @@ class ConfigStore(initialValues: Map<String, Any?> = emptyMap()) {
     }
 
     /**
+     * Permite acceder a configuracion con estilo corto:
+     * `app.config("app.name")`
+     */
+    operator fun invoke(key: String, default: Any? = null): Any? {
+        return get(key, default)
+    }
+
+    /**
      * Establece un valor de configuración usando notación de puntos.
      *
      * Si las rutas intermedias no existen, se crean automáticamente como mapas.

@@ -3,12 +3,14 @@ package kernel.foundation
 import kernel.config.ConfigFile
 import kernel.config.MapConfigLoader
 import kernel.env.Env
+import kernel.env.env
 import kernel.providers.ServiceProvider
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ApplicationTest {
@@ -46,6 +48,79 @@ class ApplicationTest {
         assertEquals("testing", application.config.string("app.env"))
         assertTrue(application.config.bool("app.debug"))
         assertTrue(application.config.bool("features.console"))
+    }
+
+    @Test
+    fun `supports short config access from application store`() {
+        val basePath = createTempDirectory("kernel-config-short-app-test").toAbsolutePath()
+        val application = Application.bootstrap(basePath = basePath, systemValues = emptyMap())
+
+        application.loadConfig(AppConfigFile)
+
+        assertEquals("Kernel Test App", application.config("app.name"))
+        assertEquals(true, application.config("app.debug"))
+        assertEquals("fallback", application.config("missing.key", "fallback"))
+    }
+
+    @Test
+    fun `supports global config helper with active application`() {
+        val basePath = createTempDirectory("kernel-config-global-test").toAbsolutePath()
+        val application = Application.bootstrap(basePath = basePath, systemValues = emptyMap())
+
+        application.loadConfig(AppConfigFile)
+
+        assertEquals("Kernel Test App", kernel.config.config("app.name"))
+        assertEquals(true, kernel.config.config("app.debug"))
+        assertEquals("fallback", kernel.config.config("missing.key", "fallback"))
+    }
+
+    @Test
+    fun `supports app and base path helpers with active application`() {
+        val basePath = createTempDirectory("kernel-app-helper-test").toAbsolutePath()
+        val application = Application.bootstrap(basePath = basePath, systemValues = emptyMap())
+
+        assertEquals(application, app())
+        assertEquals(basePath, basePath())
+        assertEquals(basePath.resolve("config").normalize(), basePath("config"))
+    }
+
+    @Test
+    fun `supports global env helper with active application`() {
+        val basePath = createTempDirectory("kernel-env-helper-test").toAbsolutePath()
+        val application = Application.bootstrap(
+            basePath = basePath,
+            systemValues = mapOf("APP_NAME" to "Kernel From Env")
+        )
+
+        assertEquals("Kernel From Env", env("APP_NAME"))
+        assertEquals("fallback", env("MISSING_ENV", "fallback"))
+        assertEquals(application.env.get("APP_NAME"), env("APP_NAME"))
+    }
+
+    @Test
+    fun `global helpers fail when no application is active`() {
+        ApplicationContext.clear()
+
+        val configError = assertFailsWith<IllegalStateException> {
+            kernel.config.config("app.name")
+        }
+
+        val appError = assertFailsWith<IllegalStateException> {
+            app()
+        }
+
+        val pathError = assertFailsWith<IllegalStateException> {
+            basePath("config")
+        }
+
+        val envError = assertFailsWith<IllegalStateException> {
+            env("APP_NAME")
+        }
+
+        assertTrue(configError.message!!.contains("No hay una aplicacion activa"))
+        assertTrue(appError.message!!.contains("No hay una aplicacion activa"))
+        assertTrue(pathError.message!!.contains("No hay una aplicacion activa"))
+        assertTrue(envError.message!!.contains("No hay una aplicacion activa"))
     }
 
     @Test
