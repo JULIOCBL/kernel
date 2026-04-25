@@ -1,6 +1,7 @@
 package kernel.command
 
 import kernel.command.commands.MakeMigrationCommand
+import kernel.debug.DumpAndDieSignal
 import java.nio.file.Paths
 import kotlin.system.exitProcess
 
@@ -10,19 +11,38 @@ import kotlin.system.exitProcess
 object KernelCli {
     @JvmStatic
     fun main(args: Array<String>) {
-        val registry = CommandRegistry(
-            listOf(
-                MakeMigrationCommand()
-            )
-        )
+        try {
+            val result = bootAndRun(args, Paths.get("").toAbsolutePath().normalize())
 
-        val result = run(args, registry, Paths.get("").toAbsolutePath().normalize())
+            if (result.message.isNotBlank()) {
+                println(result.message)
+            }
 
-        if (result.message.isNotBlank()) {
-            println(result.message)
+            exitProcess(result.exitCode)
+        } catch (_: DumpAndDieSignal) {
+            return
         }
+    }
 
-        exitProcess(result.exitCode)
+    internal fun bootAndRun(
+        args: Array<String>,
+        workingDirectory: java.nio.file.Path,
+        registryBuilder: () -> CommandRegistry = {
+            CommandRegistry(
+                listOf(
+                    MakeMigrationCommand()
+                )
+            )
+        }
+    ): CommandResult {
+        return try {
+            val registry = registryBuilder()
+            run(args, registry, workingDirectory)
+        } catch (_: DumpAndDieSignal) {
+            CommandResult(exitCode = 0, message = "")
+        } catch (error: IllegalArgumentException) {
+            CommandResult(exitCode = 1, message = error.message ?: "Comando invalido.")
+        }
     }
 
     internal fun run(
@@ -39,6 +59,8 @@ object KernelCli {
                 )
 
             command.execute(input)
+        } catch (_: DumpAndDieSignal) {
+            CommandResult(exitCode = 0, message = "")
         } catch (error: IllegalArgumentException) {
             CommandResult(exitCode = 1, message = error.message ?: "Comando invalido.")
         }

@@ -18,6 +18,9 @@ fuente.
 `MapConfigLoader` es una implementacion simple para cargar configuracion desde
 un `Map` ya construido en memoria.
 
+`ConfigFile` define el contrato para archivos de configuracion escritos en
+Kotlin, uno por namespace, al estilo Laravel.
+
 ## Ejemplo basico
 
 ```kotlin
@@ -89,3 +92,41 @@ este kernel inicial.
 Los loaders se mantienen pequenos a proposito. La responsabilidad de parsear un
 formato concreto debe vivir en implementaciones futuras, no dentro de
 `ConfigStore`.
+
+## Archivos Kotlin por namespace
+
+La convencion recomendada es usar un archivo Kotlin por namespace de
+configuracion.
+
+Ejemplo:
+
+```kotlin
+package playground.config
+
+import kernel.config.ConfigFile
+import kernel.env.Env
+
+object AppConfig : ConfigFile {
+    override val namespace = "app"
+
+    override fun load(env: Env): Map<String, Any?> = mapOf(
+        "name" to env.string("APP_NAME", "Kernel Playground"),
+        "env" to env.string("APP_ENV", "local"),
+        "debug" to env.bool("APP_DEBUG", true),
+    )
+}
+```
+
+Luego la app puede cargarlo desde su provider:
+
+```kotlin
+app.loadConfig(AppConfig)
+```
+
+Con eso, los valores quedan disponibles como:
+
+```kotlin
+app.config.string("app.name")
+app.config.string("app.env")
+app.config.bool("app.debug")
+```
