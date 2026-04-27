@@ -5,6 +5,7 @@ import kernel.config.ConfigFile
 import kernel.config.ConfigStore
 import kernel.env.Env
 import kernel.env.EnvLoader
+import kernel.providers.ProviderFactory
 import kernel.providers.ServiceProvider
 import java.nio.file.Path
 import kotlin.reflect.KClass
@@ -121,6 +122,24 @@ class Application(
      */
     fun register(factory: (Application) -> ServiceProvider): Application {
         return register(factory(this))
+    }
+
+    /**
+     * Registra multiples providers a partir de factories declarativos.
+     *
+     * Es util para bootstraps de aplicacion que quieren mantener una lista
+     * central de providers estilo Laravel.
+     */
+    fun registerAll(vararg factories: ProviderFactory): Application {
+        return registerAll(factories.asList())
+    }
+
+    /**
+     * Registra una coleccion de factories de providers.
+     */
+    fun registerAll(factories: Iterable<ProviderFactory>): Application {
+        factories.forEach(::register)
+        return this
     }
 
     /**

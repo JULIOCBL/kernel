@@ -4,6 +4,7 @@ import kernel.config.ConfigFile
 import kernel.config.MapConfigLoader
 import kernel.env.Env
 import kernel.env.env
+import kernel.providers.ProviderFactory
 import kernel.providers.ServiceProvider
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
@@ -162,6 +163,26 @@ class ApplicationTest {
     }
 
     @Test
+    fun `register all supports central provider lists`() {
+        val application = Application.bootstrap(
+            basePath = createTempDirectory("kernel-provider-list-test").toAbsolutePath(),
+            systemValues = emptyMap()
+        )
+        val providers: List<ProviderFactory> = listOf(
+            ::TrackingProvider,
+            ::TrackingProvider,
+            ::MetricsProvider
+        )
+
+        application.registerAll(providers).boot()
+
+        assertTrue(application.config.bool("providers.tracking.registered"))
+        assertTrue(application.config.bool("providers.metrics.registered"))
+        assertTrue(application.config.bool("providers.metrics.booted"))
+        assertEquals(2, application.providers().size)
+    }
+
+    @Test
     fun `provider registered after boot is booted immediately`() {
         val application = Application.bootstrap(
             basePath = createTempDirectory("kernel-provider-boot-test").toAbsolutePath(),
@@ -192,6 +213,16 @@ class ApplicationTest {
                 "providers.tracking.bootCalls",
                 app.config.int("providers.tracking.bootCalls") + 1
             )
+        }
+    }
+
+    private class MetricsProvider(app: Application) : ServiceProvider(app) {
+        override fun register() {
+            app.config.set("providers.metrics.registered", true)
+        }
+
+        override fun boot() {
+            app.config.set("providers.metrics.booted", true)
         }
     }
 
