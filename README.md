@@ -45,6 +45,16 @@ La regla es:
 - en bordes de la app ya inicializada, los helpers globales son validos;
 - no existe una "app activa" mutable por hilo ni por scope.
 
+## Providers
+
+`ServiceProvider` es el mecanismo principal de extension del ciclo de arranque.
+
+- `register()` prepara configuracion y servicios tempranos;
+- `boot()` ejecuta inicializacion final cuando la app ya registro todos sus providers;
+- `Application.registerAll(...)` permite declarar la lista de providers en un bootstrap central.
+
+La guia detallada esta en [src/main/kotlin/kernel/providers/README.md](/Users/julio.billtag/Archivos/test/kernel/src/main/kotlin/kernel/providers/README.md:1).
+
 ## Estructura Actual
 
 Hoy el proyecto contiene principalmente:
