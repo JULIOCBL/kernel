@@ -3,10 +3,7 @@ package kernel.env
 import kernel.foundation.app
 
 /**
- * Helper global estilo Laravel para leer variables de entorno.
- *
- * Ejemplo:
- * `env("APP_NAME")`
+ * Helper global para leer variables de entorno de la aplicacion bootstrappeada.
  */
 fun env(key: String, default: String? = null): String? {
     return app().env.get(key, default)

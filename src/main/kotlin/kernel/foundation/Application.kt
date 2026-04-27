@@ -24,10 +24,6 @@ class Application(
     private val providersByType = linkedMapOf<KClass<out ServiceProvider>, ServiceProvider>()
     private var booted: Boolean = false
 
-    init {
-        ApplicationContext.bind(this)
-    }
-
     /**
      * Resuelve una ruta relativa a la raiz de la aplicacion.
      */

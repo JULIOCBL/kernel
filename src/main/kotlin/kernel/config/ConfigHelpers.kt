@@ -1,13 +1,14 @@
 package kernel.config
 
-import kernel.foundation.ApplicationContext
+import kernel.foundation.ApplicationRuntime
 
 /**
- * Helper global estilo Laravel.
+ * Helper global de configuracion del proceso actual.
  *
- * Ejemplo:
- * `config("app.name")`
+ * Debe usarse solo cuando la app ya fue bootstrappeada como singleton estable
+ * del proceso. En codigo reusable o en tests, sigue siendo preferible pasar la
+ * `Application` explicitamente.
  */
 fun config(key: String, default: Any? = null): Any? {
-    return ApplicationContext.current().config.get(key, default)
+    return ApplicationRuntime.current().config.get(key, default)
 }

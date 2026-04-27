@@ -31,6 +31,20 @@ Convertir `kernel` en una base estandar para construir apps Kotlin con:
 Puedes ajustar esos limites en `kernel.debug.DebugConfig`.
 Por defecto vienen en `null`, asi que `dump()` y `dd()` no recortan nada.
 
+## Criterio De Arquitectura
+
+`Application` es una dependencia explicita en el nucleo del framework.
+
+Al mismo tiempo, el workspace puede exponer helpers ergonomicos como `config()`
+o `env()` cuando la app ya fue bootstrappeada como singleton estable del
+proceso mediante `ApplicationRuntime.initialize(app)`.
+
+La regla es:
+
+- en codigo reusable del kernel, preferir `Application` explicita;
+- en bordes de la app ya inicializada, los helpers globales son validos;
+- no existe una "app activa" mutable por hilo ni por scope.
+
 ## Estructura Actual
 
 Hoy el proyecto contiene principalmente:

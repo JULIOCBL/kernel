@@ -7,6 +7,7 @@ import kernel.env.env
 import kernel.providers.ServiceProvider
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -14,6 +15,11 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ApplicationTest {
+    @BeforeTest
+    fun resetRuntime() {
+        ApplicationRuntime.resetForTests()
+    }
+
     @Test
     fun `bootstrap loads env values from base path`() {
         val basePath = createTempDirectory("kernel-application-test").toAbsolutePath()
@@ -63,64 +69,72 @@ class ApplicationTest {
     }
 
     @Test
-    fun `supports global config helper with active application`() {
-        val basePath = createTempDirectory("kernel-config-global-test").toAbsolutePath()
+    fun `global helpers work after runtime bootstrap`() {
+        ApplicationRuntime.resetForTests()
+        val basePath = createTempDirectory("kernel-runtime-global-test").toAbsolutePath()
         val application = Application.bootstrap(basePath = basePath, systemValues = emptyMap())
+            .loadConfig(AppConfigFile)
 
-        application.loadConfig(AppConfigFile)
-
-        assertEquals("Kernel Test App", kernel.config.config("app.name"))
-        assertEquals(true, kernel.config.config("app.debug"))
-        assertEquals("fallback", kernel.config.config("missing.key", "fallback"))
-    }
-
-    @Test
-    fun `supports app and base path helpers with active application`() {
-        val basePath = createTempDirectory("kernel-app-helper-test").toAbsolutePath()
-        val application = Application.bootstrap(basePath = basePath, systemValues = emptyMap())
+        ApplicationRuntime.initialize(application)
 
         assertEquals(application, app())
+        assertEquals("Kernel Test App", kernel.config.config("app.name"))
+        assertEquals(true, kernel.config.config("app.debug"))
+        assertEquals("Kernel From Default", env("MISSING_ENV", "Kernel From Default"))
         assertEquals(basePath, basePath())
         assertEquals(basePath.resolve("config").normalize(), basePath("config"))
     }
 
     @Test
-    fun `supports global env helper with active application`() {
+    fun `environment values remain explicit on the application instance`() {
         val basePath = createTempDirectory("kernel-env-helper-test").toAbsolutePath()
         val application = Application.bootstrap(
             basePath = basePath,
             systemValues = mapOf("APP_NAME" to "Kernel From Env")
         )
 
-        assertEquals("Kernel From Env", env("APP_NAME"))
-        assertEquals("fallback", env("MISSING_ENV", "fallback"))
-        assertEquals(application.env.get("APP_NAME"), env("APP_NAME"))
+        assertEquals("Kernel From Env", application.env.get("APP_NAME"))
+        assertEquals("fallback", application.env.get("MISSING_ENV", "fallback"))
     }
 
     @Test
-    fun `global helpers fail when no application is active`() {
-        ApplicationContext.clear()
+    fun `runtime initialization rejects replacing the process application`() {
+        ApplicationRuntime.resetForTests()
+        val firstApplication = Application.bootstrap(
+            basePath = createTempDirectory("kernel-context-first-test").toAbsolutePath(),
+            systemValues = emptyMap()
+        ).loadConfig("app", mapOf("name" to "Kernel First"))
+        val secondApplication = Application.bootstrap(
+            basePath = createTempDirectory("kernel-context-second-test").toAbsolutePath(),
+            systemValues = emptyMap()
+        ).loadConfig("app", mapOf("name" to "Kernel Second"))
+
+        ApplicationRuntime.initialize(firstApplication)
+
+        val error = assertFailsWith<IllegalStateException> {
+            ApplicationRuntime.initialize(secondApplication)
+        }
+
+        assertEquals("Kernel First", firstApplication.config.string("app.name"))
+        assertEquals("Kernel Second", secondApplication.config.string("app.name"))
+        assertFalse(firstApplication === secondApplication)
+        assertTrue(error.message!!.contains("ya fue inicializado"))
+    }
+
+    @Test
+    fun `global helpers fail before runtime bootstrap`() {
+        ApplicationRuntime.resetForTests()
 
         val configError = assertFailsWith<IllegalStateException> {
             kernel.config.config("app.name")
-        }
-
-        val appError = assertFailsWith<IllegalStateException> {
-            app()
-        }
-
-        val pathError = assertFailsWith<IllegalStateException> {
-            basePath("config")
         }
 
         val envError = assertFailsWith<IllegalStateException> {
             env("APP_NAME")
         }
 
-        assertTrue(configError.message!!.contains("No hay una aplicacion activa"))
-        assertTrue(appError.message!!.contains("No hay una aplicacion activa"))
-        assertTrue(pathError.message!!.contains("No hay una aplicacion activa"))
-        assertTrue(envError.message!!.contains("No hay una aplicacion activa"))
+        assertTrue(configError.message!!.contains("no ha sido inicializado"))
+        assertTrue(envError.message!!.contains("no ha sido inicializado"))
     }
 
     @Test
