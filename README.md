@@ -37,7 +37,8 @@ Por defecto vienen en `null`, asi que `dump()` y `dd()` no recortan nada.
 
 Al mismo tiempo, el workspace puede exponer helpers ergonomicos como `config()`
 o `env()` cuando la app ya fue bootstrappeada como singleton estable del
-proceso mediante `ApplicationRuntime.initialize(app)`.
+proceso mediante `Application.bootstrapRuntime(...)` o
+`application.initializeRuntime()`.
 
 La regla es:
 

@@ -86,22 +86,21 @@ Para acercarnos al estilo Laravel, `kernel` soporta listas de factories de
 providers mediante `ProviderFactory` y `Application.registerAll(...)`.
 
 ```kotlin
-typealias ProviderFactory = (Application) -> ServiceProvider
+val providers: List<ProviderFactory> = listOf(
+    providerFactory(::AppServiceProvider),
+    providerFactory(::AuditServiceProvider),
+    providerFactory(::RouteServiceProvider)
+)
 ```
 
 ```kotlin
-val providers: List<ProviderFactory> = listOf(
-    ::AppServiceProvider,
-    ::AuditServiceProvider,
-    ::RouteServiceProvider
-)
-
-val app = Application.bootstrap(basePath)
+val app = Application.bootstrapRuntime(basePath)
     .registerAll(providers)
     .boot()
 ```
 
-Ese patron permite mover la lista oficial de providers a un bootstrap central.
+Ese patron permite mover la lista oficial de providers a un bootstrap central y
+evita instanciar providers duplicados antes de descartarlos.
 
 ## Recomendaciones
 

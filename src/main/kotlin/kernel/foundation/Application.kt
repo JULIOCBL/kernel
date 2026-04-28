@@ -94,6 +94,17 @@ class Application(
     }
 
     /**
+     * Registra esta instancia como runtime global del proceso.
+     *
+     * Esto habilita helpers ergonomicos como `app()`, `config()` y `env()`
+     * durante el resto del bootstrap, incluyendo providers que quieran usarlos
+     * en `register()` o `boot()`.
+     */
+    fun initializeRuntime(): Application {
+        return ApplicationRuntime.initialize(this)
+    }
+
+    /**
      * Registra un provider por instancia.
      *
      * El metodo ignora duplicados por tipo para mantener un ciclo de vida
@@ -119,9 +130,32 @@ class Application(
 
     /**
      * Registra un provider usando un factory basado en la aplicacion actual.
+     *
+     * La variante tipada permite detectar duplicados antes de construir el
+     * provider, siempre que la lambda mantenga un tipo concreto de retorno.
      */
-    fun register(factory: (Application) -> ServiceProvider): Application {
+    inline fun <reified T : ServiceProvider> register(
+        noinline factory: (Application) -> T
+    ): Application {
+        if (hasProvider(T::class)) {
+            return this
+        }
+
         return register(factory(this))
+    }
+
+    /**
+     * Registra un provider a partir de un factory declarativo con metadatos.
+     *
+     * A diferencia del overload basado solo en lambda, aqui podemos evitar la
+     * construccion del provider si su tipo ya estaba registrado.
+     */
+    fun register(factory: ProviderFactory): Application {
+        if (hasProvider(factory.type)) {
+            return this
+        }
+
+        return register(factory.create(this))
     }
 
     /**
@@ -183,6 +217,25 @@ class Application(
                 env = Env(loadedEnvironment, systemValues),
                 config = ConfigStore()
             )
+        }
+
+        /**
+         * Crea una aplicacion bootstrappeada y la registra como runtime global.
+         *
+         * Este es el camino recomendado para apps desktop/CLI que operan con una
+         * sola `Application` por proceso y quieren usar helpers globales de
+         * forma segura desde el arranque.
+         */
+        fun bootstrapRuntime(
+            basePath: Path,
+            environmentFile: String = ".env",
+            systemValues: Map<String, String> = System.getenv()
+        ): Application {
+            return bootstrap(
+                basePath = basePath,
+                environmentFile = environmentFile,
+                systemValues = systemValues
+            ).initializeRuntime()
         }
     }
 }

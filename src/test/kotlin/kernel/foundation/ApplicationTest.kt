@@ -6,6 +6,7 @@ import kernel.env.Env
 import kernel.env.env
 import kernel.providers.ProviderFactory
 import kernel.providers.ServiceProvider
+import kernel.providers.providerFactory
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
 import kotlin.test.BeforeTest
@@ -19,6 +20,7 @@ class ApplicationTest {
     @BeforeTest
     fun resetRuntime() {
         ApplicationRuntime.resetForTests()
+        ConstructorProbeProvider.constructorCalls = 0
     }
 
     @Test
@@ -71,12 +73,9 @@ class ApplicationTest {
 
     @Test
     fun `global helpers work after runtime bootstrap`() {
-        ApplicationRuntime.resetForTests()
         val basePath = createTempDirectory("kernel-runtime-global-test").toAbsolutePath()
-        val application = Application.bootstrap(basePath = basePath, systemValues = emptyMap())
+        val application = Application.bootstrapRuntime(basePath = basePath, systemValues = emptyMap())
             .loadConfig(AppConfigFile)
-
-        ApplicationRuntime.initialize(application)
 
         assertEquals(application, app())
         assertEquals("Kernel Test App", kernel.config.config("app.name"))
@@ -84,6 +83,20 @@ class ApplicationTest {
         assertEquals("Kernel From Default", env("MISSING_ENV", "Kernel From Default"))
         assertEquals(basePath, basePath())
         assertEquals(basePath.resolve("config").normalize(), basePath("config"))
+    }
+
+    @Test
+    fun `bootstrap runtime makes global helpers available during provider registration`() {
+        val basePath = createTempDirectory("kernel-runtime-provider-test").toAbsolutePath()
+
+        val application = Application.bootstrapRuntime(
+            basePath = basePath,
+            systemValues = emptyMap()
+        ).register(::RuntimeAwareProvider)
+            .boot()
+
+        assertTrue(application.config.bool("providers.runtimeAware.registered"))
+        assertTrue(application.config.bool("providers.runtimeAware.booted"))
     }
 
     @Test
@@ -169,9 +182,9 @@ class ApplicationTest {
             systemValues = emptyMap()
         )
         val providers: List<ProviderFactory> = listOf(
-            ::TrackingProvider,
-            ::TrackingProvider,
-            ::MetricsProvider
+            providerFactory(::TrackingProvider),
+            providerFactory(::TrackingProvider),
+            providerFactory(::MetricsProvider)
         )
 
         application.registerAll(providers).boot()
@@ -180,6 +193,37 @@ class ApplicationTest {
         assertTrue(application.config.bool("providers.metrics.registered"))
         assertTrue(application.config.bool("providers.metrics.booted"))
         assertEquals(2, application.providers().size)
+    }
+
+    @Test
+    fun `register all does not instantiate duplicate providers`() {
+        val application = Application.bootstrap(
+            basePath = createTempDirectory("kernel-provider-dedup-test").toAbsolutePath(),
+            systemValues = emptyMap()
+        )
+        val providers = listOf(
+            providerFactory(::ConstructorProbeProvider),
+            providerFactory(::ConstructorProbeProvider)
+        )
+
+        application.registerAll(providers).boot()
+
+        assertEquals(1, ConstructorProbeProvider.constructorCalls)
+        assertEquals(1, application.providers().size)
+    }
+
+    @Test
+    fun `typed register does not instantiate duplicate providers`() {
+        val application = Application.bootstrap(
+            basePath = createTempDirectory("kernel-provider-single-dedup-test").toAbsolutePath(),
+            systemValues = emptyMap()
+        )
+
+        application.register(::ConstructorProbeProvider)
+        application.register(::ConstructorProbeProvider)
+
+        assertEquals(1, ConstructorProbeProvider.constructorCalls)
+        assertEquals(1, application.providers().size)
     }
 
     @Test
@@ -223,6 +267,26 @@ class ApplicationTest {
 
         override fun boot() {
             app.config.set("providers.metrics.booted", true)
+        }
+    }
+
+    private class RuntimeAwareProvider(app: Application) : ServiceProvider(app) {
+        override fun register() {
+            app().config.set("providers.runtimeAware.registered", true)
+        }
+
+        override fun boot() {
+            app().config.set("providers.runtimeAware.booted", true)
+        }
+    }
+
+    private class ConstructorProbeProvider(app: Application) : ServiceProvider(app) {
+        init {
+            constructorCalls += 1
+        }
+
+        companion object {
+            var constructorCalls: Int = 0
         }
     }
 
