@@ -7,6 +7,15 @@ package kernel.foundation
  * ni por scopes temporales. Se inicializa una sola vez durante el arranque del
  * proceso y despues actua como referencia estable para helpers ergonomicos como
  * `config()` o `env()`.
+ *
+ * Contrato importante:
+ *
+ * - esta API asume una sola `Application` por proceso;
+ * - no debe tratarse como una fabrica reusable de apps;
+ * - si necesitas dos `Application` en el mismo JVM, usa `Application.bootstrap`
+ *   y trabaja explicitamente con la instancia, sin helpers globales;
+ * - si el bootstrap falla despues de inicializar el runtime, el proceso debe
+ *   considerarse fallido y no reintentarse sobre la misma JVM.
  */
 object ApplicationRuntime {
     private val lock = Any()

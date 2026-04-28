@@ -46,6 +46,28 @@ La regla es:
 - en bordes de la app ya inicializada, los helpers globales son validos;
 - no existe una "app activa" mutable por hilo ni por scope.
 
+## Runtime Global Del Proceso
+
+`ApplicationRuntime` existe para procesos que operan con una sola app
+bootstrappeada, por ejemplo:
+
+- una app desktop;
+- una CLI;
+- un servidor que arranca una sola vez y comparte una unica configuracion.
+
+Contrato del runtime:
+
+- `bootstrapRuntime(...)` y `ApplicationRuntime.initialize(...)` asumen una sola
+  `Application` por proceso;
+- no deben tratarse como una fabrica reusable de apps;
+- si necesitas dos `Application` distintas dentro del mismo JVM, usa
+  `Application.bootstrap(...)` y trabaja explicitamente con la instancia;
+- si el bootstrap falla despues de inicializar el runtime, el proceso debe
+  considerarse fallido.
+
+En otras palabras: los helpers `app()`, `config()`, `env()` y `basePath()` son
+comodidad para una app ya establecida, no una abstraccion para multi-app.
+
 ## Providers
 
 `ServiceProvider` es el mecanismo principal de extension del ciclo de arranque.

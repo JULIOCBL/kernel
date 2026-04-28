@@ -225,6 +225,10 @@ class Application(
          * Este es el camino recomendado para apps desktop/CLI que operan con una
          * sola `Application` por proceso y quieren usar helpers globales de
          * forma segura desde el arranque.
+         *
+         * No debe usarse como sustituto de una fabrica reusable. Si el flujo
+         * necesita construir dos apps distintas en el mismo proceso, usa
+         * `bootstrap(...)` y trabaja explicitamente con la instancia.
          */
         fun bootstrapRuntime(
             basePath: Path,

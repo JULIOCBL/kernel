@@ -102,6 +102,12 @@ val app = Application.bootstrapRuntime(basePath)
 Ese patron permite mover la lista oficial de providers a un bootstrap central y
 evita instanciar providers duplicados antes de descartarlos.
 
+Importante: `bootstrapRuntime(...)` asume una sola app por proceso. Si un test,
+tool o flujo necesita construir dos `Application` distintas en el mismo JVM, no
+deberia montarse sobre el runtime global ni sobre helpers como `config()` o
+`env()`. En ese caso, prefiere `Application.bootstrap(...)` y usa
+`app.config` / `app.env` explicitamente.
+
 ## Recomendaciones
 
 - usa `register()` para configuracion y preparacion temprana;
