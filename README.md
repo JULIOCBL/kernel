@@ -24,6 +24,7 @@ Convertir `kernel` en una base estandar para construir apps Kotlin con:
 - registro de comandos;
 - carga de `.env`;
 - store de configuracion;
+- manager ligero de conexiones multiples de base de datos;
 - utilidades `dump()` y `dd()` para depuracion de consola;
 - introspeccion segura de objetos para `dump()` y `dd()` con limites de profundidad y truncado;
 - DSL y generacion de migraciones.
@@ -77,6 +78,64 @@ comodidad para una app ya establecida, no una abstraccion para multi-app.
 - `Application.registerAll(...)` permite declarar la lista de providers en un bootstrap central.
 
 La guia detallada esta en [src/main/kotlin/kernel/providers/README.md](/Users/julio.billtag/Archivos/test/kernel/src/main/kotlin/kernel/providers/README.md:1).
+
+## Base De Datos
+
+El kernel ya soporta una base inicial para conexiones multiples al estilo
+Laravel:
+
+- `database.default` define la conexion por defecto;
+- `database.connections.<nombre>` define conexiones nombradas;
+- `database.connections.<nombre>.driver` define el motor (`pgsql`, `mysql`, etc.);
+- `database.connections.<nombre>.jdbcDriver` permite override del driver JDBC si hace falta;
+- `DatabaseManager` resuelve la configuracion y abre conexiones JDBC por nombre.
+
+Ejemplo:
+
+```kotlin
+val app = Application.bootstrap(basePath)
+    .loadConfig(
+        "database",
+        mapOf(
+            "default" to "primary",
+            "connections" to mapOf(
+                "primary" to mapOf(
+                    "driver" to "pgsql",
+                    "url" to "jdbc:postgresql://localhost:5432/app",
+                    "username" to "postgres",
+                    "password" to "secret"
+                ),
+                "analytics" to mapOf(
+                    "driver" to "pgsql",
+                    "url" to "jdbc:postgresql://localhost:5432/analytics",
+                    "username" to "postgres",
+                    "password" to "secret"
+                )
+            )
+        )
+    )
+
+val database = kernel.database.DatabaseManager.from(app)
+database.withConnection("analytics") { connection ->
+    // usar JDBC aqui
+}
+```
+
+Por ahora esto abre conexiones JDBC directas. El contrato esta pensado para que
+mas adelante podamos introducir pooling o `DataSource` sin romper la forma en
+que la app elige conexiones por nombre.
+
+Orden actual del kernel para esta capa:
+
+- `kernel.database.pdo.connections`: manager, resolver y configuracion materializada;
+- `kernel.database.pdo.drivers`: drivers soportados por el kernel;
+- `kernel.database.postgresql`: piezas especificas de PostgreSQL para schema/migraciones.
+
+Importante:
+
+- hoy el kernel solo trae `PostgreSqlDriver`;
+- por lo tanto, tanto conexiones como migraciones/schema estan oficialmente orientadas a `pgsql`;
+- cuando agreguemos otro motor, deberia entrar como un nuevo driver dentro de `kernel.database.pdo.drivers`.
 
 ## Estructura Actual
 
