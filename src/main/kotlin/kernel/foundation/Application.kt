@@ -63,6 +63,11 @@ class Application(
     fun providers(): List<ServiceProvider> = providersByType.values.toList()
 
     /**
+     * Devuelve la cantidad de providers registrados sin materializar una lista.
+     */
+    fun providerCount(): Int = providersByType.size
+
+    /**
      * Carga configuracion en memoria usando un loader desacoplado del origen.
      */
     fun loadConfig(loader: ConfigLoader, namespace: String = ""): Application {

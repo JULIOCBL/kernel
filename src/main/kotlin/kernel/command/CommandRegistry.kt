@@ -5,8 +5,9 @@ package kernel.command
  */
 class CommandRegistry(commands: List<Command>) {
     private val commandsByName = commands.associateBy(Command::name)
+    private val availableCommandNames = commandsByName.keys.sorted()
 
     fun find(name: String): Command? = commandsByName[name]
 
-    fun availableCommands(): List<String> = commandsByName.keys.sorted()
+    fun availableCommands(): List<String> = availableCommandNames
 }
