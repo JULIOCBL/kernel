@@ -88,7 +88,7 @@ Laravel:
 
 - `database.default` define la conexion por defecto;
 - `database.connections.<nombre>` define conexiones nombradas;
-- `database.connections.<nombre>.driver` define el motor (`pgsql`, `mysql`, etc.);
+- `database.connections.<nombre>.driver` define el motor (`pgsql`, `mariadb`, etc.);
 - `database.connections.<nombre>.jdbcDriver` permite override del driver JDBC si hace falta;
 - `DatabaseManager` resuelve la configuracion y abre conexiones JDBC por nombre.
 
@@ -135,9 +135,45 @@ Orden actual del kernel para esta capa:
 
 Importante:
 
-- hoy el kernel solo trae `PostgreSqlDriver`;
-- por lo tanto, tanto conexiones como migraciones/schema estan oficialmente orientadas a `pgsql`;
-- cuando agreguemos otro motor, deberia entrar como un nuevo driver dentro de `kernel.database.pdo.drivers`.
+- hoy el kernel trae soporte oficial para `PostgreSqlDriver` y `MariaDbDriver`;
+- el `Migrator` resuelve el dialecto SQL segun la conexion real que use cada migracion;
+- una app puede mezclar motores por conexion, por ejemplo `main` en PostgreSQL y `logs` en MariaDB.
+
+### Resolucion De Conexion En Migraciones
+
+La ejecucion de migraciones sigue una precedencia fija, pensada para parecerse
+a Laravel:
+
+1. `migration.connectionName`
+2. `--database=<nombre>` en el comando
+3. `database.default`
+
+Ejemplo:
+
+```kotlin
+class CreateAuditLogsTable : Migration() {
+    override val connectionName: String = "logs"
+
+    override fun up() {
+        create("audit_logs") {
+            id().primaryKey()
+            string("message").notNull()
+            timestampsTz()
+        }
+    }
+
+    override fun down() {
+        dropIfExists("audit_logs")
+    }
+}
+```
+
+Con esa migracion:
+
+- `./kernel migrate` la ejecuta automaticamente en `logs`;
+- `./kernel migrate --database=main` tambien la ejecuta en `logs`, porque la migracion manda;
+- una migracion sin `connectionName` usa la conexion del comando si existe;
+- si tampoco hay `--database`, usa `database.default`.
 
 ## Estructura Actual
 

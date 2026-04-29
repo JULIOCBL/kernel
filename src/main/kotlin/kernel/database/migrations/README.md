@@ -178,6 +178,36 @@ Precedencia de conexion:
 - `MigrationRunOptions.database`
 - `database.default`
 
+Eso significa que una migracion puede declarar explicitamente su propia
+conexion y dejar que el `Migrator` resuelva todo automaticamente.
+
+Ejemplo:
+
+```kotlin
+class M2026_04_29_150000_create_audit_logs_table : Migration() {
+    override val connectionName: String = "logs"
+
+    override fun up() {
+        create("audit_logs") {
+            id().primaryKey()
+            string("message").notNull()
+            timestampsTz()
+        }
+    }
+
+    override fun down() {
+        dropIfExists("audit_logs")
+    }
+}
+```
+
+Comportamiento esperado:
+
+- `./kernel migrate` ejecuta esta migracion en `logs`;
+- `./kernel migrate --database=main` tambien la ejecuta en `logs`;
+- una migracion que no define `connectionName` usa primero `--database`;
+- si no se pasa `--database`, usa `database.default`.
+
 ## MariaDB En La Practica
 
 Si una conexion usa `driver = mariadb`, el `Migrator` cambia automaticamente a
