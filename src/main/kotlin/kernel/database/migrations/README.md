@@ -58,18 +58,25 @@ val downSql = generator.generateDown(migration)
 val statements = generator.generateUpStatements(migration)
 ```
 
-## Ejecutar Migraciones Registradas
+## Descubrir Migraciones Por Convencion
 
-El kernel no descubre clases Kotlin automaticamente como Laravel descubre
-archivos `.php`. En lugar de eso usa un registry explicito:
+El kernel puede descubrir migraciones automaticamente desde un package,
+siguiendo una convención tipo Laravel:
 
 ```kotlin
-val registry = MigrationRegistry(
-    listOf(
-        migrationFactory(::M0001_01_01_000000_create_users_table)
-    )
-)
+val registry = MigrationDiscovery.discover("playground.database.migrations")
 ```
+
+Las clases detectadas deben vivir en ese package y seguir una convención como:
+
+```text
+M2026_04_28_121500_create_users_table
+```
+
+Si una app necesita control absoluto, también puede construir un
+`MigrationRegistry` manualmente.
+
+## Ejecutar Migraciones Desde Codigo
 
 Luego puedes crear un `Migrator` usando un `ConnectionResolver` y un
 `MigrationRepository`:
@@ -91,8 +98,56 @@ migrator.run(
     )
 )
 
+migrator.rollback()
+migrator.rollback(MigrationRollbackOptions(steps = 1))
 migrator.status()
 migrator.status(MigrationStatusOptions(database = "logs"))
+```
+
+## Ejecutar Los Comandos CLI Desde Codigo
+
+Las clases de comando del kernel también pueden invocarse programáticamente:
+
+```kotlin
+import kernel.command.CommandInput
+import kernel.command.commands.MigrateCommand
+import kernel.command.commands.MigrateRollbackCommand
+import kernel.command.commands.MigrateStatusCommand
+
+val migrate = MigrateCommand(migrator::run)
+val rollback = MigrateRollbackCommand(migrator::rollback)
+val status = MigrateStatusCommand(migrator::status)
+```
+
+Ejemplos:
+
+```kotlin
+val migrateResult = migrate.execute(
+    CommandInput(
+        name = "migrate",
+        arguments = emptyList(),
+        options = mapOf("database" to "logs"),
+        workingDirectory = app.basePath
+    )
+)
+
+val rollbackResult = rollback.execute(
+    CommandInput(
+        name = "migrate:rollback",
+        arguments = emptyList(),
+        options = mapOf("step" to "1"),
+        workingDirectory = app.basePath
+    )
+)
+
+val statusResult = status.execute(
+    CommandInput(
+        name = "migrate:status",
+        arguments = emptyList(),
+        options = mapOf("only" to "M0001_01_01_000000_create_users_table"),
+        workingDirectory = app.basePath
+    )
+)
 ```
 
 Precedencia de conexion:

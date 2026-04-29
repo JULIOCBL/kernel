@@ -154,6 +154,89 @@ class MigratorTest {
         assertEquals(listOf<String?>("main", null), repository.sources)
     }
 
+    @Test
+    fun `rollback reverts last batch and removes records`() {
+        val repository = InMemoryMigrationRepository().apply {
+            createRepository()
+            log("M2026_04_23_214243_create_terminal_users_table", 1)
+            log("LogsOnlyMigration", 2)
+        }
+        val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::M2026_04_23_214243_create_terminal_users_table),
+                migrationFactory(::LogsOnlyMigration)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val rolledBack = migrator.rollback(MigrationRollbackOptions(database = "main", steps = 1))
+
+        assertEquals(listOf("LogsOnlyMigration"), rolledBack)
+        assertTrue(resolver.connectionHandle("logs").executedStatements.any { it.contains("log_entries") })
+        assertEquals(listOf<String?>("main", null), repository.sources)
+        assertEquals(listOf("M2026_04_23_214243_create_terminal_users_table"), repository.getRan())
+    }
+
+    @Test
+    fun `run executes migrations in ascending order by migration name`() {
+        val repository = InMemoryMigrationRepository()
+        val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
+        val executionOrder = mutableListOf<String>()
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory { M2026_04_28_140200_order_third(executionOrder) },
+                migrationFactory { M2026_04_28_140000_order_first(executionOrder) },
+                migrationFactory { M2026_04_28_140100_order_second(executionOrder) }
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val executed = migrator.run()
+
+        assertEquals(
+            listOf(
+                "M2026_04_28_140000_order_first",
+                "M2026_04_28_140100_order_second",
+                "M2026_04_28_140200_order_third"
+            ),
+            executed
+        )
+        assertEquals(executed, executionOrder)
+    }
+
+    @Test
+    fun `rollback reverts migrations in descending order inside the latest batch`() {
+        val repository = InMemoryMigrationRepository().apply {
+            createRepository()
+            log("M2026_04_28_140000_order_first", 7)
+            log("M2026_04_28_140100_order_second", 7)
+            log("M2026_04_28_140200_order_third", 7)
+        }
+        val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
+        val rollbackOrder = mutableListOf<String>()
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory { M2026_04_28_140000_order_first(rollbackOrder) },
+                migrationFactory { M2026_04_28_140100_order_second(rollbackOrder) },
+                migrationFactory { M2026_04_28_140200_order_third(rollbackOrder) }
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val rolledBack = migrator.rollback()
+
+        assertEquals(
+            listOf(
+                "M2026_04_28_140200_order_third",
+                "M2026_04_28_140100_order_second",
+                "M2026_04_28_140000_order_first"
+            ),
+            rolledBack
+        )
+        assertEquals(rolledBack, rollbackOrder)
+    }
+
     private class InMemoryMigrationRepository : MigrationRepository {
         val records = mutableMapOf<Int, MutableList<MigrationRecord>>()
         val sources = mutableListOf<String?>()
@@ -330,6 +413,54 @@ class MigratorTest {
 
         override fun down() {
             dropIfExists("log_entries")
+        }
+    }
+
+    private class M2026_04_28_140000_order_first(
+        private val executionOrder: MutableList<String> = mutableListOf()
+    ) : Migration() {
+        override fun up() {
+            executionOrder += this::class.simpleName.orEmpty()
+            create("order_first") {
+                id()
+            }
+        }
+
+        override fun down() {
+            executionOrder += this::class.simpleName.orEmpty()
+            dropIfExists("order_first")
+        }
+    }
+
+    private class M2026_04_28_140100_order_second(
+        private val executionOrder: MutableList<String> = mutableListOf()
+    ) : Migration() {
+        override fun up() {
+            executionOrder += this::class.simpleName.orEmpty()
+            create("order_second") {
+                id()
+            }
+        }
+
+        override fun down() {
+            executionOrder += this::class.simpleName.orEmpty()
+            dropIfExists("order_second")
+        }
+    }
+
+    private class M2026_04_28_140200_order_third(
+        private val executionOrder: MutableList<String> = mutableListOf()
+    ) : Migration() {
+        override fun up() {
+            executionOrder += this::class.simpleName.orEmpty()
+            create("order_third") {
+                id()
+            }
+        }
+
+        override fun down() {
+            executionOrder += this::class.simpleName.orEmpty()
+            dropIfExists("order_third")
         }
     }
 }

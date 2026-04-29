@@ -29,7 +29,7 @@ Convertir `kernel` en una base estandar para construir apps Kotlin con:
 - introspeccion segura de objetos para `dump()` y `dd()` con limites de profundidad y truncado;
 - DSL y generacion de migraciones;
 - `Migrator`, `MigrationRegistry` y `MigrationRepository` para ejecutar y consultar migraciones registradas explicitamente;
-- comando base `migrate`.
+- comandos base `migrate`, `migrate:rollback` y `migrate:status`.
 
 Puedes ajustar esos limites en `kernel.debug.DebugConfig`.
 Por defecto vienen en `null`, asi que `dump()` y `dd()` no recortan nada.
