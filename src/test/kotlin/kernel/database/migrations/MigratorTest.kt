@@ -35,10 +35,14 @@ class MigratorTest {
             ),
             executed
         )
-        assertEquals(listOf<String?>("logs", null), repository.sources)
-        assertEquals(1, repository.records.size)
-        assertEquals(2, repository.records.values.single().size)
-        assertEquals(1, repository.records.values.single().first().batch)
+        assertEquals(
+            listOf(
+                "M2026_04_23_214243_create_terminal_users_table",
+                "M2026_04_23_214311_create_posts_table"
+            ),
+            repository.getRan("logs")
+        )
+        assertTrue(repository.getRan("main").isEmpty())
         assertTrue(
             resolver.connectionHandle("logs").executedStatements.any { statement ->
                 statement.contains("terminal_users")
@@ -67,7 +71,8 @@ class MigratorTest {
         assertEquals(listOf("LogsOnlyMigration"), executed)
         assertTrue(resolver.connectionHandle("logs").executedStatements.isNotEmpty())
         assertTrue(resolver.connectionHandle("main").executedStatements.isEmpty())
-        assertEquals(listOf<String?>("main", null), repository.sources)
+        assertEquals(listOf("LogsOnlyMigration"), repository.getRan("logs"))
+        assertTrue(repository.getRan("main").isEmpty())
     }
 
     @Test
@@ -120,6 +125,7 @@ class MigratorTest {
     @Test
     fun `status returns ran and pending migrations with batch and connection`() {
         val repository = InMemoryMigrationRepository().apply {
+            setSource("main")
             createRepository()
             log("M2026_04_23_214243_create_terminal_users_table", 4)
         }
@@ -153,14 +159,46 @@ class MigratorTest {
             ),
             statuses.last()
         )
-        assertEquals(listOf<String?>("main", null), repository.sources)
+    }
+
+    @Test
+    fun `status reads explicit migration batches from their own connection`() {
+        val repository = InMemoryMigrationRepository().apply {
+            setSource("logs")
+            createRepository()
+            log("LogsOnlyMigration", 9)
+        }
+        val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::M2026_04_23_214243_create_terminal_users_table),
+                migrationFactory(::LogsOnlyMigration)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val statuses = migrator.status(MigrationStatusOptions(database = "main"))
+
+        assertEquals(
+            MigrationStatus(
+                migration = "LogsOnlyMigration",
+                status = MigrationState.RAN,
+                batch = 9,
+                connection = "logs"
+            ),
+            statuses.first()
+        )
+        assertEquals(MigrationState.PENDING, statuses.last().status)
     }
 
     @Test
     fun `rollback reverts last batch and removes records`() {
         val repository = InMemoryMigrationRepository().apply {
+            setSource("main")
             createRepository()
             log("M2026_04_23_214243_create_terminal_users_table", 1)
+            setSource("logs")
+            createRepository()
             log("LogsOnlyMigration", 2)
         }
         val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
@@ -176,8 +214,26 @@ class MigratorTest {
 
         assertEquals(listOf("LogsOnlyMigration"), rolledBack)
         assertTrue(resolver.connectionHandle("logs").executedStatements.any { it.contains("log_entries") })
-        assertEquals(listOf<String?>("main", null), repository.sources)
-        assertEquals(listOf("M2026_04_23_214243_create_terminal_users_table"), repository.getRan())
+        assertTrue(repository.getRan("logs").isEmpty())
+        assertEquals(listOf("M2026_04_23_214243_create_terminal_users_table"), repository.getRan("main"))
+    }
+
+    @Test
+    fun `rollback on a fresh database returns empty without creating repository`() {
+        val repository = InMemoryMigrationRepository()
+        val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::M2026_04_23_214243_create_terminal_users_table)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val rolledBack = migrator.rollback()
+
+        assertTrue(rolledBack.isEmpty())
+        assertTrue(repository.getRan("main").isEmpty())
+        assertTrue(!repository.repositoryExistsOn("main"))
     }
 
     @Test
@@ -210,6 +266,7 @@ class MigratorTest {
     @Test
     fun `rollback reverts migrations in descending order inside the latest batch`() {
         val repository = InMemoryMigrationRepository().apply {
+            setSource("main")
             createRepository()
             log("M2026_04_28_140000_order_first", 7)
             log("M2026_04_28_140100_order_second", 7)
@@ -264,19 +321,19 @@ class MigratorTest {
     }
 
     private class InMemoryMigrationRepository : MigrationRepository {
-        val records = mutableMapOf<Int, MutableList<MigrationRecord>>()
+        private val recordsBySource = mutableMapOf<String, MutableMap<Int, MutableList<MigrationRecord>>>()
         val sources = mutableListOf<String?>()
         private var sourceName: String? = null
-        private var exists: Boolean = false
+        private val repositories = mutableMapOf<String, Boolean>()
 
         override fun getRan(): List<String> {
-            return records.values.flatten()
+            return currentRecords().values.flatten()
                 .sortedWith(compareBy(MigrationRecord::batch, MigrationRecord::migration))
                 .map(MigrationRecord::migration)
         }
 
         override fun getMigrationBatches(): Map<String, Int> {
-            return records.values.flatten()
+            return currentRecords().values.flatten()
                 .sortedWith(compareBy(MigrationRecord::batch, MigrationRecord::migration))
                 .associate { record -> record.migration to record.batch }
         }
@@ -284,42 +341,64 @@ class MigratorTest {
         override fun getMigrations(steps: Int): List<MigrationRecord> {
             require(steps > 0)
 
-            return records.values.flatten()
+            return currentRecords().values.flatten()
                 .sortedWith(compareByDescending<MigrationRecord> { it.batch }.thenByDescending { it.migration })
                 .take(steps)
         }
 
         override fun getLast(): List<MigrationRecord> {
             val batch = getLastBatchNumber()
-            return records[batch]?.sortedByDescending(MigrationRecord::migration).orEmpty()
+            return currentRecords()[batch]?.sortedByDescending(MigrationRecord::migration).orEmpty()
         }
 
         override fun log(migration: String, batch: Int) {
-            records.getOrPut(batch, ::mutableListOf) += MigrationRecord(migration, batch)
+            currentRecords().getOrPut(batch, ::mutableListOf) += MigrationRecord(migration, batch)
         }
 
         override fun delete(record: MigrationRecord) {
-            records[record.batch]?.remove(record)
+            currentRecords()[record.batch]?.remove(record)
         }
 
         override fun getNextBatchNumber(): Int = getLastBatchNumber() + 1
 
-        override fun getLastBatchNumber(): Int = records.keys.maxOrNull() ?: 0
+        override fun getLastBatchNumber(): Int = currentRecords().keys.maxOrNull() ?: 0
 
         override fun createRepository() {
-            exists = true
+            repositories[sourceKey()] = true
         }
 
-        override fun repositoryExists(): Boolean = exists
+        override fun repositoryExists(): Boolean = repositories[sourceKey()] ?: false
 
         override fun deleteRepository() {
-            exists = false
-            records.clear()
+            repositories[sourceKey()] = false
+            recordsBySource.remove(sourceKey())
         }
 
         override fun setSource(name: String?) {
             sourceName = name
             sources += sourceName
+        }
+
+        fun getRan(name: String?): List<String> {
+            val previous = sourceName
+            return try {
+                sourceName = name
+                getRan()
+            } finally {
+                sourceName = previous
+            }
+        }
+
+        fun repositoryExistsOn(name: String?): Boolean {
+            return repositories[sourceKey(name)] ?: false
+        }
+
+        private fun currentRecords(): MutableMap<Int, MutableList<MigrationRecord>> {
+            return recordsBySource.getOrPut(sourceKey()) { mutableMapOf() }
+        }
+
+        private fun sourceKey(name: String? = sourceName): String {
+            return name ?: "__default__"
         }
     }
 

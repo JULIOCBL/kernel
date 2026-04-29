@@ -34,37 +34,37 @@ class Migrator(
 
     fun run(options: MigrationRunOptions = MigrationRunOptions()): List<String> {
         return usingConnection(options.database) {
-            val pending = pendingMigrations(options.only)
+            val selectedNames = normalizedNames(options.only)
+            validateRequestedMigrations(selectedNames)
+
+            val pending = pendingDefinitions(selectedNames)
             if (pending.isEmpty()) {
                 return@usingConnection emptyList()
             }
 
-            ensureRepositoryExists()
-            val batch = repository.getNextBatchNumber()
-            pending.forEach { definition ->
-                runUp(definition, batch)
+            val batchNumbers = mutableMapOf<String, Int>()
+            pending.forEach { resolved ->
+                ensureRepositoryExists(resolved.connection)
+                val batch = batchNumbers.getOrPut(resolved.connection) {
+                    getNextBatchNumber(resolved.connection)
+                }
+                runUp(resolved, batch)
             }
 
-            pending.map(MigrationDefinition::name)
+            pending.map { resolved -> resolved.definition.name }
         }
     }
 
     fun rollback(options: MigrationRollbackOptions = MigrationRollbackOptions()): List<String> {
         return usingConnection(options.database) {
-            ensureRepositoryExists()
-
-            val migrations = if (options.steps > 0) {
-                repository.getMigrations(options.steps)
-            } else {
-                repository.getLast()
-            }
+            val migrations = rollbackCandidates(options.steps)
 
             if (migrations.isEmpty()) {
                 return@usingConnection emptyList()
             }
 
             migrations.forEach(::runDown)
-            migrations.map(MigrationRecord::migration)
+            migrations.map { candidate -> candidate.record.migration }
         }
     }
 
@@ -84,21 +84,21 @@ class Migrator(
                 return@usingConnection emptyList()
             }
 
-            val batches = if (repository.repositoryExists()) {
-                repository.getMigrationBatches()
-            } else {
-                emptyMap()
-            }
+            val batchesByConnection = mutableMapOf<String, Map<String, Int>>()
 
             definitions.map { definition ->
                 val migration = definition.create()
+                val connection = resolveMigrationConnectionName(migration)
+                val batches = batchesByConnection.getOrPut(connection) {
+                    getMigrationBatches(connection)
+                }
                 val batch = batches[definition.name]
 
                 MigrationStatus(
                     migration = definition.name,
                     status = if (batch != null) MigrationState.RAN else MigrationState.PENDING,
                     batch = batch,
-                    connection = resolveMigrationConnectionName(migration)
+                    connection = connection
                 )
             }
         }
@@ -112,15 +112,7 @@ class Migrator(
             return emptyList()
         }
 
-        val ran = if (repository.repositoryExists()) repository.getRan().toSet() else emptySet()
-
-        return registry.all()
-            .asSequence()
-            .filter { definition ->
-                selectedNames.isEmpty() || definition.name in selectedNames
-            }
-            .filterNot { definition -> definition.name in ran }
-            .toList()
+        return pendingDefinitions(selectedNames).map(ResolvedMigration::definition)
     }
 
     fun setConnection(name: String?): Migrator {
@@ -142,33 +134,46 @@ class Migrator(
         }
     }
 
-    private fun ensureRepositoryExists() {
-        if (!repository.repositoryExists()) {
-            repository.createRepository()
+    private fun ensureRepositoryExists(connection: String) {
+        if (!repositoryExists(connection)) {
+            usingRepositorySource(connection) {
+                repository.createRepository()
+            }
         }
     }
 
-    private fun runUp(definition: MigrationDefinition, batch: Int) {
-        val migration = definition.create()
-        runMigration(migration, direction = MigrationDirection.UP)
-        repository.log(definition.name, batch)
+    private fun runUp(resolved: ResolvedMigration, batch: Int) {
+        runMigration(resolved.migration, resolved.connection, direction = MigrationDirection.UP)
+        usingRepositorySource(resolved.connection) {
+            repository.log(resolved.definition.name, batch)
+        }
     }
 
-    private fun runDown(record: MigrationRecord) {
-        val definition = registry.find(record.migration)
+    private fun runDown(candidate: ScopedMigrationRecord) {
+        val definition = registry.find(candidate.record.migration)
             ?: throw IllegalStateException(
-                "La migracion `${record.migration}` no existe en el MigrationRegistry."
+                "La migracion `${candidate.record.migration}` no existe en el MigrationRegistry."
             )
 
-        runMigration(definition.create(), direction = MigrationDirection.DOWN)
-        repository.delete(record)
+        val migration = definition.create()
+        val connection = resolveMigrationConnectionName(migration)
+
+        require(connection == candidate.connection) {
+            "La migracion `${candidate.record.migration}` esperaba la conexion `$connection`, " +
+                "pero fue recuperada desde `${candidate.connection}`."
+        }
+
+        runMigration(migration, candidate.connection, direction = MigrationDirection.DOWN)
+        usingRepositorySource(candidate.connection) {
+            repository.delete(candidate.record)
+        }
     }
 
     private fun runMigration(
         migration: Migration,
+        targetConnection: String,
         direction: MigrationDirection
     ) {
-        val targetConnection = resolveMigrationConnectionName(migration)
         val connectionConfig = resolver.connectionConfig(targetConnection)
         connectionConfig.requireSchemaMigrationSupport()
         val statements = when (direction) {
@@ -195,6 +200,69 @@ class Migrator(
             ?: resolver.defaultConnectionName()
     }
 
+    private fun pendingDefinitions(selectedNames: Set<String>): List<ResolvedMigration> {
+        val ranByConnection = mutableMapOf<String, Set<String>>()
+
+        return registry.all()
+            .asSequence()
+            .filter { definition ->
+                selectedNames.isEmpty() || definition.name in selectedNames
+            }
+            .map { definition ->
+                val migration = definition.create()
+                ResolvedMigration(
+                    definition = definition,
+                    migration = migration,
+                    connection = resolveMigrationConnectionName(migration)
+                )
+            }
+            .filter { resolved ->
+                val ran = ranByConnection.getOrPut(resolved.connection) {
+                    getRan(resolved.connection).toSet()
+                }
+                resolved.definition.name !in ran
+            }
+            .toList()
+    }
+
+    private fun rollbackCandidates(steps: Int): List<ScopedMigrationRecord> {
+        val connections = registry.all()
+            .asSequence()
+            .map { definition ->
+                resolveMigrationConnectionName(definition.create())
+            }
+            .distinct()
+            .toList()
+
+        val candidates = connections.flatMap { connection ->
+            val records = if (!repositoryExists(connection)) {
+                emptyList()
+            } else if (steps > 0) {
+                usingRepositorySource(connection) {
+                    repository.getMigrations(steps)
+                }
+            } else {
+                usingRepositorySource(connection) {
+                    repository.getLast()
+                }
+            }
+
+            records.map { record ->
+                ScopedMigrationRecord(record = record, connection = connection)
+            }
+        }.sortedWith(
+            compareByDescending<ScopedMigrationRecord> { candidate -> candidate.record.batch }
+                .thenByDescending { candidate -> candidate.record.migration }
+                .thenBy { candidate -> candidate.connection }
+        )
+
+        return if (steps > 0) {
+            candidates.take(steps)
+        } else {
+            candidates
+        }
+    }
+
     private fun validateRequestedMigrations(requestedNames: Set<String>) {
         val missing = requestedNames.filterNot(registry::contains)
         require(missing.isEmpty()) {
@@ -210,6 +278,49 @@ class Migrator(
 
     private fun normalizeConnectionName(name: String?): String? {
         return name?.trim()?.takeIf(String::isNotEmpty)
+    }
+
+    private fun repositoryExists(connection: String): Boolean {
+        return usingRepositorySource(connection) {
+            repository.repositoryExists()
+        }
+    }
+
+    private fun getRan(connection: String): List<String> {
+        return if (repositoryExists(connection)) {
+            usingRepositorySource(connection) { repository.getRan() }
+        } else {
+            emptyList()
+        }
+    }
+
+    private fun getMigrationBatches(connection: String): Map<String, Int> {
+        return if (repositoryExists(connection)) {
+            usingRepositorySource(connection) { repository.getMigrationBatches() }
+        } else {
+            emptyMap()
+        }
+    }
+
+    private fun getNextBatchNumber(connection: String): Int {
+        return usingRepositorySource(connection) {
+            repository.getNextBatchNumber()
+        }
+    }
+
+    private fun <T> usingRepositorySource(name: String, block: () -> T): T {
+        val previousSource = repositorySource()
+        repository.setSource(name)
+
+        return try {
+            block()
+        } finally {
+            repository.setSource(previousSource)
+        }
+    }
+
+    private fun repositorySource(): String? {
+        return normalizeConnectionName(connectionName)
     }
 
     private fun Connection.inTransaction(statements: List<String>) {
@@ -237,4 +348,15 @@ class Migrator(
         UP,
         DOWN
     }
+
+    private data class ResolvedMigration(
+        val definition: MigrationDefinition,
+        val migration: Migration,
+        val connection: String
+    )
+
+    private data class ScopedMigrationRecord(
+        val record: MigrationRecord,
+        val connection: String
+    )
 }
