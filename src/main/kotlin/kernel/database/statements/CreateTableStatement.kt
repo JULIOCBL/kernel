@@ -1,6 +1,6 @@
-package kernel.database.migrations.statements
+package kernel.database.statements
 
-import kernel.database.migrations.schema.TableDefinition
+import kernel.database.schema.TableDefinition
 
 /**
  * Renderiza `CREATE TABLE` desde una definicion validada.

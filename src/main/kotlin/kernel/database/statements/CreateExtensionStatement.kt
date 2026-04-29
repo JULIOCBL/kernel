@@ -1,6 +1,6 @@
-package kernel.database.migrations.statements
+package kernel.database.statements
 
-import kernel.database.migrations.support.SqlLiteral
+import kernel.database.support.SqlLiteral
 
 /**
  * Renderiza `CREATE EXTENSION`.

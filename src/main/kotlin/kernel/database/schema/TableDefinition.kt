@@ -1,4 +1,4 @@
-package kernel.database.migrations.schema
+package kernel.database.schema
 
 /**
  * Representacion validada de una tabla lista para renderizarse como SQL.

@@ -1,4 +1,4 @@
-package kernel.database.migrations.statements
+package kernel.database.statements
 
 /**
  * Renderiza `CREATE VIEW` o `CREATE OR REPLACE VIEW`.

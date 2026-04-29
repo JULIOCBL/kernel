@@ -1,6 +1,6 @@
-package kernel.database.migrations.statements
+package kernel.database.statements
 
-import kernel.database.migrations.schema.ColumnDefinition
+import kernel.database.schema.ColumnDefinition
 
 /**
  * Renderiza `ALTER TABLE ... ADD COLUMN`.

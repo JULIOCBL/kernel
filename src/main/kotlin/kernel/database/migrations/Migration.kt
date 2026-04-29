@@ -1,58 +1,59 @@
 package kernel.database.migrations
 
-import kernel.database.migrations.collector.MigrationCollector
-import kernel.database.migrations.schema.ColumnBlueprint
-import kernel.database.migrations.schema.ColumnDefinition
-import kernel.database.migrations.schema.TableAlterationBlueprint
-import kernel.database.migrations.schema.TableBlueprint
-import kernel.database.migrations.statements.AddColumnStatement
-import kernel.database.migrations.statements.AddEnumValueStatement
-import kernel.database.migrations.statements.AlterColumnTypeStatement
-import kernel.database.migrations.statements.CommentStatement
-import kernel.database.migrations.statements.CreateDomainStatement
-import kernel.database.migrations.statements.CreateEnumStatement
-import kernel.database.migrations.statements.CreateExtensionStatement
-import kernel.database.migrations.statements.CreateFunctionStatement
-import kernel.database.migrations.statements.CreateIndexStatement
-import kernel.database.migrations.statements.CreateMaterializedViewStatement
-import kernel.database.migrations.statements.CreateSchemaStatement
-import kernel.database.migrations.statements.CreateSequenceStatement
-import kernel.database.migrations.statements.CreateTableStatement
-import kernel.database.migrations.statements.CreateTriggerStatement
-import kernel.database.migrations.statements.CreateViewStatement
-import kernel.database.migrations.statements.DropColumnDefaultStatement
-import kernel.database.migrations.statements.DropColumnNotNullStatement
-import kernel.database.migrations.statements.DropColumnStatement
-import kernel.database.migrations.statements.DropConstraintStatement
-import kernel.database.migrations.statements.DropDomainStatement
-import kernel.database.migrations.statements.DropEnumStatement
-import kernel.database.migrations.statements.DropExtensionStatement
-import kernel.database.migrations.statements.DropFunctionStatement
-import kernel.database.migrations.statements.DropIndexStatement
-import kernel.database.migrations.statements.DropMaterializedViewStatement
-import kernel.database.migrations.statements.DropSchemaStatement
-import kernel.database.migrations.statements.DropSequenceStatement
-import kernel.database.migrations.statements.DropTableStatement
-import kernel.database.migrations.statements.DropTriggerStatement
-import kernel.database.migrations.statements.DropViewStatement
-import kernel.database.migrations.statements.RawSqlStatement
-import kernel.database.migrations.statements.RefreshMaterializedViewStatement
-import kernel.database.migrations.statements.RenameColumnStatement
-import kernel.database.migrations.statements.RenameConstraintStatement
-import kernel.database.migrations.statements.RenameEnumStatement
-import kernel.database.migrations.statements.RenameEnumValueStatement
-import kernel.database.migrations.statements.RenameSchemaStatement
-import kernel.database.migrations.statements.RenameSequenceStatement
-import kernel.database.migrations.statements.RenameTableStatement
-import kernel.database.migrations.statements.SetColumnDefaultStatement
-import kernel.database.migrations.statements.SetColumnNotNullStatement
-import kernel.database.migrations.support.SqlIdentifier
+import kernel.database.collector.MigrationCollector
+import kernel.database.schema.ColumnBlueprint
+import kernel.database.schema.ColumnDefinition
+import kernel.database.schema.TableAlterationBlueprint
+import kernel.database.schema.TableBlueprint
+import kernel.database.statements.AddColumnStatement
+import kernel.database.statements.AddEnumValueStatement
+import kernel.database.statements.AlterColumnTypeStatement
+import kernel.database.statements.CommentStatement
+import kernel.database.statements.CreateDomainStatement
+import kernel.database.statements.CreateEnumStatement
+import kernel.database.statements.CreateExtensionStatement
+import kernel.database.statements.CreateFunctionStatement
+import kernel.database.statements.CreateIndexStatement
+import kernel.database.statements.CreateMaterializedViewStatement
+import kernel.database.statements.CreateSchemaStatement
+import kernel.database.statements.CreateSequenceStatement
+import kernel.database.statements.CreateTableStatement
+import kernel.database.statements.CreateTriggerStatement
+import kernel.database.statements.CreateViewStatement
+import kernel.database.statements.DropColumnDefaultStatement
+import kernel.database.statements.DropColumnNotNullStatement
+import kernel.database.statements.DropColumnStatement
+import kernel.database.statements.DropConstraintStatement
+import kernel.database.statements.DropDomainStatement
+import kernel.database.statements.DropEnumStatement
+import kernel.database.statements.DropExtensionStatement
+import kernel.database.statements.DropFunctionStatement
+import kernel.database.statements.DropIndexStatement
+import kernel.database.statements.DropMaterializedViewStatement
+import kernel.database.statements.DropSchemaStatement
+import kernel.database.statements.DropSequenceStatement
+import kernel.database.statements.DropTableStatement
+import kernel.database.statements.DropTriggerStatement
+import kernel.database.statements.DropViewStatement
+import kernel.database.statements.RawSqlStatement
+import kernel.database.statements.RefreshMaterializedViewStatement
+import kernel.database.statements.RenameColumnStatement
+import kernel.database.statements.RenameConstraintStatement
+import kernel.database.statements.RenameEnumStatement
+import kernel.database.statements.RenameEnumValueStatement
+import kernel.database.statements.RenameSchemaStatement
+import kernel.database.statements.RenameSequenceStatement
+import kernel.database.statements.RenameTableStatement
+import kernel.database.statements.SetColumnDefaultStatement
+import kernel.database.statements.SetColumnNotNullStatement
+import kernel.database.support.SqlIdentifier
 
 /**
  * Clase base para definir migraciones mediante un DSL pequeno.
  *
  * La migracion registra operaciones en `up` y `down`; despues esas operaciones
- * se pueden convertir a SQL usando `upSql`, `downSql` o `MigrationSqlGenerator`.
+ * se pueden convertir a SQL usando `upSql`, `downSql` o `SchemaSqlGenerator`
+ * mediante el alias publico `MigrationSqlGenerator`.
  */
 abstract class Migration {
     /**
@@ -157,7 +158,9 @@ abstract class Migration {
     }
 
     /**
-     * Registra una sentencia `CREATE SCHEMA` para crear un schema PostgreSQL.
+     * Registra una sentencia `CREATE SCHEMA`.
+     *
+     * Esta operacion depende de que la gramatica del motor soporte schemas.
      */
     protected fun createSchema(name: String, ifNotExists: Boolean = true) {
         activeCollector().add(
@@ -199,6 +202,8 @@ abstract class Migration {
 
     /**
      * Registra una sentencia `CREATE EXTENSION` con schema y version opcionales.
+     *
+     * Esta operacion hoy esta orientada a motores compatibles con extensiones.
      */
     protected fun createExtension(
         name: String,

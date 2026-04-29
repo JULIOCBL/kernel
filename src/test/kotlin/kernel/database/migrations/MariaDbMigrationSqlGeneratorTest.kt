@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-class MariaDbMigrationSqlGeneratorTest {
+class MariaDbGrammarTest {
     private val generator = MigrationSqlGenerator()
 
     @Test

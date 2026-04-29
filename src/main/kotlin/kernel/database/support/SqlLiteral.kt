@@ -1,4 +1,4 @@
-package kernel.database.migrations.support
+package kernel.database.support
 
 /**
  * Utilidades para convertir valores Kotlin en literales SQL seguros.

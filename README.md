@@ -131,13 +131,23 @@ Orden actual del kernel para esta capa:
 
 - `kernel.database.pdo.connections`: manager, resolver y configuracion materializada;
 - `kernel.database.pdo.drivers`: drivers soportados por el kernel;
-- `kernel.database.postgresql`: piezas especificas de PostgreSQL para schema/migraciones.
+- `kernel.database.schema`: DSL canonico de tablas, columnas y constraints;
+- `kernel.database.grammars`: traduccion del DSL a SQL por motor;
+- `kernel.database.migrations`: runner, repository, discovery, stubs y ciclo de vida.
 
 Importante:
 
 - hoy el kernel trae soporte oficial para `PostgreSqlDriver` y `MariaDbDriver`;
 - el `Migrator` resuelve el dialecto SQL segun la conexion real que use cada migracion;
 - una app puede mezclar motores por conexion, por ejemplo `main` en PostgreSQL y `logs` en MariaDB.
+
+Las migraciones de ejemplo del propio kernel ya no viven mezcladas en la raiz:
+
+- `kernel.database.migrations.examples.postgres`
+- `kernel.database.migrations.examples.mariadb`
+
+Eso deja separado el core del sistema de migraciones respecto a las muestras por
+motor.
 
 ### Resolucion De Conexion En Migraciones
 

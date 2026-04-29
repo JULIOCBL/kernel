@@ -1,11 +1,11 @@
-package kernel.database.migrations.schema
+package kernel.database.schema
 
-import kernel.database.migrations.support.SqlIdentifier
+import kernel.database.support.SqlIdentifier
 
 /**
- * Builder usado por `createTable` para declarar columnas PostgreSQL.
+ * Builder usado por `createTable` para declarar la estructura de una tabla.
  */
-class TableBlueprint internal constructor(tableName: String) : PostgreSqlColumnBlueprint() {
+class TableBlueprint internal constructor(tableName: String) : SchemaColumnBlueprint() {
     internal val name: String = SqlIdentifier.requireQualified(tableName, "Nombre de tabla")
 
     private val columns = mutableListOf<ColumnDefinition>()
@@ -71,7 +71,9 @@ class TableBlueprint internal constructor(tableName: String) : PostgreSqlColumnB
     }
 
     /**
-     * Agrega una constraint PostgreSQL `EXCLUDE`.
+     * Agrega una constraint `EXCLUDE`.
+     *
+     * Esta primitiva depende de que la gramatica del motor la soporte.
      */
     fun exclude(
         name: String,

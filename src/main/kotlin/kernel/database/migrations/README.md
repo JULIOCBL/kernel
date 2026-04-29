@@ -70,6 +70,9 @@ val downSql = generator.generateDown(migration)
 val statements = generator.generateUpStatements(migration)
 ```
 
+Internamente el kernel ahora llama a esta pieza `SchemaSqlGenerator`, pero el
+alias `MigrationSqlGenerator` se conserva para no romper compatibilidad.
+
 Tambien puedes pedir SQL para un driver concreto:
 
 ```kotlin

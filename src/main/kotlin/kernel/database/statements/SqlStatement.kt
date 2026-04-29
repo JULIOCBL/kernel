@@ -1,4 +1,4 @@
-package kernel.database.migrations.statements
+package kernel.database.statements
 
 /**
  * Operacion interna capaz de renderizar una sentencia PostgreSQL completa.

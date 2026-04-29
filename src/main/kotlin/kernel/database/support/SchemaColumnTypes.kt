@@ -1,9 +1,12 @@
-package kernel.database.migrations.support
+package kernel.database.support
 
 /**
- * Catalogo interno de tipos PostgreSQL y constructores parametrizados.
+ * Catalogo canonico de tipos y constructores del DSL de schema.
+ *
+ * No representa un motor concreto: funciona como lenguaje intermedio del
+ * kernel y luego cada gramatica decide si lo usa tal cual o lo traduce.
  */
-internal object PostgreSqlColumnTypes {
+internal object SchemaColumnTypes {
     const val UUID = "UUID"
     const val TEXT = "TEXT"
     const val SMALLINT = "SMALLINT"
@@ -165,7 +168,7 @@ internal object PostgreSqlColumnTypes {
     }
 
     /**
-     * Valida la precision temporal admitida por PostgreSQL.
+     * Valida la precision temporal admitida por el DSL actual del kernel.
      */
     private fun requirePrecision(value: Int): Int {
         require(value in 0..6) {

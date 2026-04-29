@@ -1,13 +1,16 @@
-package kernel.database.migrations.schema
+package kernel.database.schema
 
-import kernel.database.migrations.support.PostgreSqlColumnTypes
+import kernel.database.support.SchemaColumnTypes
 
 /**
- * DSL comun para declarar columnas PostgreSQL.
+ * DSL canonico del kernel para declarar columnas.
+ *
+ * Las migraciones se escriben contra esta capa neutral; despues cada gramatica
+ * de motor decide como traducirla a SQL real.
  */
-abstract class PostgreSqlColumnBlueprint internal constructor() {
+abstract class SchemaColumnBlueprint internal constructor() {
     /**
-     * Atajo comun para una llave primaria UUID nativa de PostgreSQL.
+     * Atajo comun para una llave primaria UUID.
      */
     fun id(name: String = "id"): ColumnDefinition {
         return uuid(name).notNull()
@@ -17,7 +20,7 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `UUID`.
      */
     fun uuid(name: String = "id"): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.UUID)
+        return addColumn(name, SchemaColumnTypes.UUID)
     }
 
     /**
@@ -31,11 +34,11 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `CHAR(length)`.
      */
     fun char(name: String, length: Int): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.char(length))
+        return addColumn(name, SchemaColumnTypes.char(length))
     }
 
     /**
-     * Alias PostgreSQL para `char`.
+     * Alias SQL expresivo para `char`.
      */
     fun character(name: String, length: Int): ColumnDefinition {
         return char(name, length)
@@ -45,11 +48,11 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `VARCHAR(length)`.
      */
     fun varchar(name: String, length: Int): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.varchar(length))
+        return addColumn(name, SchemaColumnTypes.varchar(length))
     }
 
     /**
-     * Alias PostgreSQL para `varchar`.
+     * Alias SQL expresivo para `varchar`.
      */
     fun characterVarying(name: String, length: Int): ColumnDefinition {
         return varchar(name, length)
@@ -66,14 +69,14 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `TEXT`.
      */
     fun text(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.TEXT)
+        return addColumn(name, SchemaColumnTypes.TEXT)
     }
 
     /**
      * Declara una columna `INTEGER`.
      */
     fun int(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.INTEGER)
+        return addColumn(name, SchemaColumnTypes.INTEGER)
     }
 
     /**
@@ -87,7 +90,7 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `SMALLINT`.
      */
     fun smallInt(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.SMALLINT)
+        return addColumn(name, SchemaColumnTypes.SMALLINT)
     }
 
     /**
@@ -101,7 +104,7 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `BIGINT`.
      */
     fun bigInt(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.BIGINT)
+        return addColumn(name, SchemaColumnTypes.BIGINT)
     }
 
     /**
@@ -115,21 +118,21 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `SMALLSERIAL`.
      */
     fun smallSerial(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.SMALLSERIAL)
+        return addColumn(name, SchemaColumnTypes.SMALLSERIAL)
     }
 
     /**
      * Declara una columna `SERIAL`.
      */
     fun serial(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.SERIAL)
+        return addColumn(name, SchemaColumnTypes.SERIAL)
     }
 
     /**
      * Declara una columna `BIGSERIAL`.
      */
     fun bigSerial(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.BIGSERIAL)
+        return addColumn(name, SchemaColumnTypes.BIGSERIAL)
     }
 
     /**
@@ -157,35 +160,35 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `REAL`.
      */
     fun real(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.REAL)
+        return addColumn(name, SchemaColumnTypes.REAL)
     }
 
     /**
      * Declara una columna `DOUBLE PRECISION`.
      */
     fun doublePrecision(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.DOUBLE_PRECISION)
+        return addColumn(name, SchemaColumnTypes.DOUBLE_PRECISION)
     }
 
     /**
      * Declara una columna `MONEY`.
      */
     fun money(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.MONEY)
+        return addColumn(name, SchemaColumnTypes.MONEY)
     }
 
     /**
      * Declara una columna `BOOLEAN`.
      */
     fun boolean(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.BOOLEAN)
+        return addColumn(name, SchemaColumnTypes.BOOLEAN)
     }
 
     /**
      * Declara una columna `BYTEA`.
      */
     fun bytea(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.BYTEA)
+        return addColumn(name, SchemaColumnTypes.BYTEA)
     }
 
     /**
@@ -199,14 +202,14 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `BIT` con longitud opcional.
      */
     fun bit(name: String, length: Int? = null): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.bit(length))
+        return addColumn(name, SchemaColumnTypes.bit(length))
     }
 
     /**
      * Declara una columna `BIT VARYING` con longitud opcional.
      */
     fun bitVarying(name: String, length: Int? = null): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.bitVarying(length))
+        return addColumn(name, SchemaColumnTypes.bitVarying(length))
     }
 
     /**
@@ -220,35 +223,35 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `DATE`.
      */
     fun date(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.DATE)
+        return addColumn(name, SchemaColumnTypes.DATE)
     }
 
     /**
      * Declara una columna `TIME` con precision opcional.
      */
     fun time(name: String, precision: Int? = null): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.time(precision))
+        return addColumn(name, SchemaColumnTypes.time(precision))
     }
 
     /**
      * Declara una columna `TIMETZ` con precision opcional.
      */
     fun timeTz(name: String, precision: Int? = null): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.timeTz(precision))
+        return addColumn(name, SchemaColumnTypes.timeTz(precision))
     }
 
     /**
      * Declara una columna `TIMESTAMP` con precision opcional.
      */
     fun timestamp(name: String, precision: Int? = null): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.timestamp(precision))
+        return addColumn(name, SchemaColumnTypes.timestamp(precision))
     }
 
     /**
      * Declara una columna `TIMESTAMPTZ` con precision opcional.
      */
     fun timestampTz(name: String, precision: Int? = null): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.timestampTz(precision))
+        return addColumn(name, SchemaColumnTypes.timestampTz(precision))
     }
 
     /**
@@ -259,14 +262,14 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
         fields: String? = null,
         precision: Int? = null
     ): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.interval(fields, precision))
+        return addColumn(name, SchemaColumnTypes.interval(fields, precision))
     }
 
     /**
      * Declara una columna `NUMERIC(precision, scale)`.
      */
     fun decimal(name: String, precision: Int, scale: Int): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.numeric(precision, scale))
+        return addColumn(name, SchemaColumnTypes.numeric(precision, scale))
     }
 
     /**
@@ -280,224 +283,224 @@ abstract class PostgreSqlColumnBlueprint internal constructor() {
      * Declara una columna `JSONB`.
      */
     fun jsonb(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.JSONB)
+        return addColumn(name, SchemaColumnTypes.JSONB)
     }
 
     /**
      * Declara una columna `JSON`.
      */
     fun json(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.JSON)
+        return addColumn(name, SchemaColumnTypes.JSON)
     }
 
     /**
      * Declara una columna `XML`.
      */
     fun xml(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.XML)
+        return addColumn(name, SchemaColumnTypes.XML)
     }
 
     /**
      * Declara una columna `CIDR`.
      */
     fun cidr(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.CIDR)
+        return addColumn(name, SchemaColumnTypes.CIDR)
     }
 
     /**
      * Declara una columna `INET`.
      */
     fun inet(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.INET)
+        return addColumn(name, SchemaColumnTypes.INET)
     }
 
     /**
      * Declara una columna `MACADDR`.
      */
     fun macaddr(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.MACADDR)
+        return addColumn(name, SchemaColumnTypes.MACADDR)
     }
 
     /**
      * Declara una columna `MACADDR8`.
      */
     fun macaddr8(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.MACADDR8)
+        return addColumn(name, SchemaColumnTypes.MACADDR8)
     }
 
     /**
      * Declara una columna geometrica `POINT`.
      */
     fun point(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.POINT)
+        return addColumn(name, SchemaColumnTypes.POINT)
     }
 
     /**
      * Declara una columna geometrica `LINE`.
      */
     fun line(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.LINE)
+        return addColumn(name, SchemaColumnTypes.LINE)
     }
 
     /**
      * Declara una columna geometrica `LSEG`.
      */
     fun lseg(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.LSEG)
+        return addColumn(name, SchemaColumnTypes.LSEG)
     }
 
     /**
      * Declara una columna geometrica `BOX`.
      */
     fun box(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.BOX)
+        return addColumn(name, SchemaColumnTypes.BOX)
     }
 
     /**
      * Declara una columna geometrica `PATH`.
      */
     fun path(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.PATH)
+        return addColumn(name, SchemaColumnTypes.PATH)
     }
 
     /**
      * Declara una columna geometrica `POLYGON`.
      */
     fun polygon(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.POLYGON)
+        return addColumn(name, SchemaColumnTypes.POLYGON)
     }
 
     /**
      * Declara una columna geometrica `CIRCLE`.
      */
     fun circle(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.CIRCLE)
+        return addColumn(name, SchemaColumnTypes.CIRCLE)
     }
 
     /**
      * Declara una columna `TSVECTOR` para busqueda de texto.
      */
     fun tsvector(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.TSVECTOR)
+        return addColumn(name, SchemaColumnTypes.TSVECTOR)
     }
 
     /**
      * Declara una columna `TSQUERY` para busqueda de texto.
      */
     fun tsquery(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.TSQUERY)
+        return addColumn(name, SchemaColumnTypes.TSQUERY)
     }
 
     /**
      * Declara una columna `PG_LSN`.
      */
     fun pgLsn(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.PG_LSN)
+        return addColumn(name, SchemaColumnTypes.PG_LSN)
     }
 
     /**
      * Declara una columna `PG_SNAPSHOT`.
      */
     fun pgSnapshot(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.PG_SNAPSHOT)
+        return addColumn(name, SchemaColumnTypes.PG_SNAPSHOT)
     }
 
     /**
      * Declara una columna `TXID_SNAPSHOT`.
      */
     fun txidSnapshot(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.TXID_SNAPSHOT)
+        return addColumn(name, SchemaColumnTypes.TXID_SNAPSHOT)
     }
 
     /**
      * Declara una columna `INT4RANGE`.
      */
     fun int4Range(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.INT4RANGE)
+        return addColumn(name, SchemaColumnTypes.INT4RANGE)
     }
 
     /**
      * Declara una columna `INT8RANGE`.
      */
     fun int8Range(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.INT8RANGE)
+        return addColumn(name, SchemaColumnTypes.INT8RANGE)
     }
 
     /**
      * Declara una columna `NUMRANGE`.
      */
     fun numRange(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.NUMRANGE)
+        return addColumn(name, SchemaColumnTypes.NUMRANGE)
     }
 
     /**
      * Declara una columna `TSRANGE`.
      */
     fun tsRange(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.TSRANGE)
+        return addColumn(name, SchemaColumnTypes.TSRANGE)
     }
 
     /**
      * Declara una columna `TSTZRANGE`.
      */
     fun tstzRange(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.TSTZRANGE)
+        return addColumn(name, SchemaColumnTypes.TSTZRANGE)
     }
 
     /**
      * Declara una columna `DATERANGE`.
      */
     fun dateRange(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.DATERANGE)
+        return addColumn(name, SchemaColumnTypes.DATERANGE)
     }
 
     /**
      * Declara una columna `INT4MULTIRANGE`.
      */
     fun int4MultiRange(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.INT4MULTIRANGE)
+        return addColumn(name, SchemaColumnTypes.INT4MULTIRANGE)
     }
 
     /**
      * Declara una columna `INT8MULTIRANGE`.
      */
     fun int8MultiRange(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.INT8MULTIRANGE)
+        return addColumn(name, SchemaColumnTypes.INT8MULTIRANGE)
     }
 
     /**
      * Declara una columna `NUMMULTIRANGE`.
      */
     fun numMultiRange(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.NUMMULTIRANGE)
+        return addColumn(name, SchemaColumnTypes.NUMMULTIRANGE)
     }
 
     /**
      * Declara una columna `TSMULTIRANGE`.
      */
     fun tsMultiRange(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.TSMULTIRANGE)
+        return addColumn(name, SchemaColumnTypes.TSMULTIRANGE)
     }
 
     /**
      * Declara una columna `TSTZMULTIRANGE`.
      */
     fun tstzMultiRange(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.TSTZMULTIRANGE)
+        return addColumn(name, SchemaColumnTypes.TSTZMULTIRANGE)
     }
 
     /**
      * Declara una columna `DATEMULTIRANGE`.
      */
     fun dateMultiRange(name: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.DATEMULTIRANGE)
+        return addColumn(name, SchemaColumnTypes.DATEMULTIRANGE)
     }
 
     /**
      * Declara una columna de arreglo usando la sintaxis `tipo[]`.
      */
     fun array(name: String, elementType: String): ColumnDefinition {
-        return addColumn(name, PostgreSqlColumnTypes.array(elementType))
+        return addColumn(name, SchemaColumnTypes.array(elementType))
     }
 
     /**

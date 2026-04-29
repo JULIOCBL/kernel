@@ -1,6 +1,6 @@
-package kernel.database.migrations.collector
+package kernel.database.collector
 
-import kernel.database.migrations.statements.SqlStatement
+import kernel.database.statements.SqlStatement
 
 /**
  * Acumula las operaciones declaradas por una migracion en el orden exacto.

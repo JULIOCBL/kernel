@@ -1,9 +1,9 @@
-package kernel.database.migrations.schema
+package kernel.database.schema
 
-import kernel.database.migrations.support.SqlLiteral
+import kernel.database.support.SqlLiteral
 
 /**
- * Definicion fluida de una columna PostgreSQL.
+ * Definicion fluida de una columna del DSL canonico del kernel.
  */
 class ColumnDefinition internal constructor(
     internal val name: String,
@@ -122,7 +122,9 @@ class ColumnDefinition internal constructor(
     }
 
     /**
-     * Define `gen_random_uuid()` como default para UUID generados en PostgreSQL.
+     * Define un UUID generado por la base usando la funcion canonica del DSL.
+     *
+     * Cada gramatica puede traducir esta expresion al equivalente de su motor.
      */
     fun defaultGeneratedUuid(): ColumnDefinition {
         require(generatedSql == null) {

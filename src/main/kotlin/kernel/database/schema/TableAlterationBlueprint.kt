@@ -1,20 +1,20 @@
-package kernel.database.migrations.schema
+package kernel.database.schema
 
-import kernel.database.migrations.collector.MigrationCollector
-import kernel.database.migrations.statements.AddColumnStatement
-import kernel.database.migrations.statements.AddTableConstraintStatement
-import kernel.database.migrations.statements.AlterColumnTypeStatement
-import kernel.database.migrations.statements.CreateIndexStatement
-import kernel.database.migrations.statements.DropColumnDefaultStatement
-import kernel.database.migrations.statements.DropColumnNotNullStatement
-import kernel.database.migrations.statements.DropColumnStatement
-import kernel.database.migrations.statements.DropConstraintStatement
-import kernel.database.migrations.statements.DropIndexStatement
-import kernel.database.migrations.statements.RenameColumnStatement
-import kernel.database.migrations.statements.RenameConstraintStatement
-import kernel.database.migrations.statements.SetColumnDefaultStatement
-import kernel.database.migrations.statements.SetColumnNotNullStatement
-import kernel.database.migrations.support.SqlIdentifier
+import kernel.database.collector.MigrationCollector
+import kernel.database.statements.AddColumnStatement
+import kernel.database.statements.AddTableConstraintStatement
+import kernel.database.statements.AlterColumnTypeStatement
+import kernel.database.statements.CreateIndexStatement
+import kernel.database.statements.DropColumnDefaultStatement
+import kernel.database.statements.DropColumnNotNullStatement
+import kernel.database.statements.DropColumnStatement
+import kernel.database.statements.DropConstraintStatement
+import kernel.database.statements.DropIndexStatement
+import kernel.database.statements.RenameColumnStatement
+import kernel.database.statements.RenameConstraintStatement
+import kernel.database.statements.SetColumnDefaultStatement
+import kernel.database.statements.SetColumnNotNullStatement
+import kernel.database.support.SqlIdentifier
 
 /**
  * Builder estilo Laravel para modificar una tabla existente.
@@ -22,7 +22,7 @@ import kernel.database.migrations.support.SqlIdentifier
 class TableAlterationBlueprint internal constructor(
     private val table: String,
     private val collector: MigrationCollector
-) : PostgreSqlColumnBlueprint() {
+) : SchemaColumnBlueprint() {
     /**
      * Agrega una columna a una tabla existente con `ALTER TABLE ... ADD COLUMN`.
      */

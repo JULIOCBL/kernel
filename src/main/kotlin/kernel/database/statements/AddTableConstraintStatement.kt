@@ -1,6 +1,6 @@
-package kernel.database.migrations.statements
+package kernel.database.statements
 
-import kernel.database.migrations.schema.TableConstraintDefinition
+import kernel.database.schema.TableConstraintDefinition
 
 /**
  * Renderiza `ALTER TABLE ... ADD CONSTRAINT`.

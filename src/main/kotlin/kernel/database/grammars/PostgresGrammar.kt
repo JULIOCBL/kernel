@@ -1,12 +1,11 @@
-package kernel.database.migrations.postgresql
+package kernel.database.grammars
 
 import kernel.database.migrations.Migration
-import kernel.database.migrations.MigrationDialectGenerator
 
 /**
- * Genera SQL compatible con PostgreSQL desde una migracion.
+ * Gramatica nativa de PostgreSQL para el DSL de migraciones.
  */
-class PostgreSqlMigrationSqlGenerator : MigrationDialectGenerator {
+class PostgresGrammar : SchemaGrammar {
     /**
      * Genera un script SQL para aplicar la migracion.
      */

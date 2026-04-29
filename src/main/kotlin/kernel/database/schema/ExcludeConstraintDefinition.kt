@@ -1,4 +1,4 @@
-package kernel.database.migrations.schema
+package kernel.database.schema
 
 /**
  * Constraint PostgreSQL `EXCLUDE` con metodo de indice y elementos arbitrarios.

@@ -1,6 +1,6 @@
-package kernel.database.migrations.schema
+package kernel.database.schema
 
-import kernel.database.migrations.support.SqlIdentifier
+import kernel.database.support.SqlIdentifier
 
 /**
  * Builder fluido para constraints `FOREIGN KEY`.

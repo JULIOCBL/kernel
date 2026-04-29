@@ -1,4 +1,4 @@
-package kernel.database.migrations.schema
+package kernel.database.schema
 
 /**
  * Representa la llave primaria de una tabla.

@@ -1,4 +1,6 @@
-package kernel.database.migrations
+package kernel.database.migrations.examples.postgres
+
+import kernel.database.migrations.Migration
 
 /**
  * Migracion de ejemplo que crea y elimina `example_table`.

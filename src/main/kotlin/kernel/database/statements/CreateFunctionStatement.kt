@@ -1,4 +1,4 @@
-package kernel.database.migrations.statements
+package kernel.database.statements
 
 /**
  * Renderiza `CREATE FUNCTION` con cuerpo en dollar quoting.

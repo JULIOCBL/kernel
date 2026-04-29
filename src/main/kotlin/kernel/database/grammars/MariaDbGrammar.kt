@@ -1,17 +1,15 @@
-package kernel.database.migrations.mariadb
+package kernel.database.grammars
 
 import kernel.database.migrations.Migration
-import kernel.database.migrations.MigrationDialectGenerator
 
 /**
- * Genera SQL compatible con MariaDB a partir del DSL actual del kernel.
+ * Gramatica de MariaDB para el DSL canonico del kernel.
  *
- * El DSL nacio orientado a PostgreSQL, asi que esta clase actua como una capa
- * de compatibilidad: traduce el subconjunto portable al dialecto MariaDB y
- * falla con un error claro cuando detecta caracteristicas exclusivamente
- * PostgreSQL.
+ * El DSL todavia conserva varias primitivas nacidas en PostgreSQL, asi que esta
+ * gramatica traduce el subconjunto portable al dialecto MariaDB y falla con un
+ * error claro cuando detecta caracteristicas exclusivas de otro motor.
  */
-class MariaDbMigrationSqlGenerator : MigrationDialectGenerator {
+class MariaDbGrammar : SchemaGrammar {
     override fun generateUp(migration: Migration): String {
         return generateUpStatements(migration).joinToString("\n\n")
     }

@@ -1,4 +1,4 @@
-package kernel.database.migrations.schema
+package kernel.database.schema
 
 /**
  * Contrato para constraints de tabla que pueden renderizarse dentro de SQL.

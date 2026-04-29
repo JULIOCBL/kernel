@@ -1,11 +1,11 @@
-package kernel.database.migrations.schema
+package kernel.database.schema
 
-import kernel.database.migrations.support.SqlIdentifier
+import kernel.database.support.SqlIdentifier
 
 /**
  * Builder usado para declarar una sola columna en `ALTER TABLE ... ADD COLUMN`.
  */
-class ColumnBlueprint internal constructor() : PostgreSqlColumnBlueprint() {
+class ColumnBlueprint internal constructor() : SchemaColumnBlueprint() {
     private var column: ColumnDefinition? = null
 
     /**
