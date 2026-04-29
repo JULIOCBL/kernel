@@ -3,6 +3,8 @@ package kernel.database.migrations
 import kernel.database.pdo.connections.ConnectionResolver
 import kernel.database.pdo.connections.DatabaseConnectionConfig
 import kernel.database.pdo.drivers.DatabaseDriver
+import kernel.database.pdo.drivers.MariaDbDriver
+import kernel.database.pdo.drivers.PostgreSqlDriver
 import java.lang.reflect.Proxy
 import java.sql.Connection
 import java.sql.Statement
@@ -237,6 +239,30 @@ class MigratorTest {
         assertEquals(rolledBack, rollbackOrder)
     }
 
+    @Test
+    fun `run uses mariadb grammar and avoids schema transactions when driver does not support them`() {
+        val repository = InMemoryMigrationRepository()
+        val resolver = RecordingConnectionResolver(
+            defaultConnectionName = "main",
+            driver = MariaDbDriver
+        )
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::M2026_04_23_214243_create_terminal_users_table)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val executed = migrator.run()
+
+        assertEquals(listOf("M2026_04_23_214243_create_terminal_users_table"), executed)
+        val handle = resolver.connectionHandle("main")
+        assertTrue(handle.executedStatements.any { statement -> statement.contains("CHAR(36)") })
+        assertTrue(handle.executedStatements.any { statement -> statement.contains("TIMESTAMP") })
+        assertEquals(0, handle.commitCount)
+        assertEquals(0, handle.rollbackCount)
+    }
+
     private class InMemoryMigrationRepository : MigrationRepository {
         val records = mutableMapOf<Int, MutableList<MigrationRecord>>()
         val sources = mutableListOf<String?>()
@@ -298,11 +324,12 @@ class MigratorTest {
     }
 
     private class RecordingConnectionResolver(
-        private val defaultConnectionName: String
+        private val defaultConnectionName: String,
+        private val driver: DatabaseDriver = PostgreSqlDriver
     ) : ConnectionResolver {
         private val config = DatabaseConnectionConfig(
             name = "recording",
-            driver = RecordingDriver,
+            driver = driver,
             url = "jdbc:recording"
         )
         private val handles = mutableMapOf<String, RecordingConnectionHandle>()

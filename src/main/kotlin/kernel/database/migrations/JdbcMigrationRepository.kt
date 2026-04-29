@@ -6,9 +6,8 @@ import java.sql.Connection
 /**
  * Repositorio JDBC simple para guardar el historial de migraciones ejecutadas.
  *
- * Por ahora esta orientado al soporte oficial inicial del kernel (`pgsql`),
- * pero usa `DatabaseMetaData` para consultar existencia de tabla y mantiene la
- * interfaz suficientemente pequena para futuras implementaciones.
+ * Soporta los motores oficiales actuales del kernel (`pgsql`, `mariadb`) y
+ * adapta quoting, DDL basico y consulta de metadata segun la conexion activa.
  */
 class JdbcMigrationRepository(
     private val resolver: ConnectionResolver,
@@ -131,22 +130,29 @@ class JdbcMigrationRepository(
 
         withConnection { connection ->
             connection.createStatement().use { statement ->
-                statement.execute(
-                    "create table if not exists ${quotedTable()} (" +
-                        "id bigserial primary key, " +
-                        "migration varchar(255) not null, " +
-                        "batch integer not null)"
-                )
+                statement.execute(createRepositorySql(connectionConfig.driver.id))
             }
         }
     }
 
     override fun repositoryExists(): Boolean {
+        val driverId = resolver.connectionConfig(sourceConnectionName).driver.id
         val (schema, tableName) = tableParts()
 
         return withConnection { connection ->
-            connection.metaData.getTables(null, schema, tableName, arrayOf("TABLE")).use { result ->
-                result.next()
+            when (driverId) {
+                "mariadb" -> {
+                    val catalog = schema ?: connection.catalog
+                    connection.metaData.getTables(catalog, null, tableName, arrayOf("TABLE")).use { result ->
+                        result.next()
+                    }
+                }
+
+                else -> {
+                    connection.metaData.getTables(null, schema, tableName, arrayOf("TABLE")).use { result ->
+                        result.next()
+                    }
+                }
             }
         }
     }
@@ -181,11 +187,12 @@ class JdbcMigrationRepository(
     }
 
     private fun quotedTable(): String {
+        val driverId = resolver.connectionConfig(sourceConnectionName).driver.id
         val (schema, tableName) = tableParts()
         return buildList {
             schema?.let(::add)
             add(tableName)
-        }.joinToString(".") { part -> "\"$part\"" }
+        }.joinToString(".") { part -> quoteIdentifier(part, driverId) }
     }
 
     private fun tableParts(): Pair<String?, String> {
@@ -202,6 +209,31 @@ class JdbcMigrationRepository(
 
     private fun normalizedConnectionName(name: String?): String? {
         return name?.trim()?.takeIf(String::isNotEmpty)
+    }
+
+    private fun createRepositorySql(driverId: String): String {
+        return when (driverId) {
+            "mariadb" -> {
+                "create table if not exists ${quotedTable()} (" +
+                    "id bigint unsigned not null auto_increment primary key, " +
+                    "migration varchar(255) not null, " +
+                    "batch int not null)"
+            }
+
+            else -> {
+                "create table if not exists ${quotedTable()} (" +
+                    "id bigserial primary key, " +
+                    "migration varchar(255) not null, " +
+                    "batch integer not null)"
+            }
+        }
+    }
+
+    private fun quoteIdentifier(part: String, driverId: String): String {
+        return when (driverId) {
+            "mariadb" -> "`$part`"
+            else -> "\"$part\""
+        }
     }
 
     companion object {

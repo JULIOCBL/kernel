@@ -172,8 +172,8 @@ class Migrator(
         val connectionConfig = resolver.connectionConfig(targetConnection)
         connectionConfig.requireSchemaMigrationSupport()
         val statements = when (direction) {
-            MigrationDirection.UP -> sqlGenerator.generateUpStatements(migration)
-            MigrationDirection.DOWN -> sqlGenerator.generateDownStatements(migration)
+            MigrationDirection.UP -> sqlGenerator.generateUpStatements(migration, connectionConfig.driver)
+            MigrationDirection.DOWN -> sqlGenerator.generateDownStatements(migration, connectionConfig.driver)
         }
 
         if (statements.isEmpty()) {

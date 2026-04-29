@@ -1,6 +1,7 @@
 package kernel.database
 
 import kernel.config.MapConfigLoader
+import kernel.database.pdo.drivers.MariaDbDriver
 import kernel.database.pdo.drivers.PostgreSqlDriver
 import kernel.foundation.Application
 import kernel.foundation.ApplicationRuntime
@@ -234,6 +235,31 @@ class DatabaseManagerTest {
 
         assertTrue(manager.connectionConfig("main").supportsSchemaMigrations())
         assertTrue(manager.connectionConfig("logs").supportsSchemaMigrations())
+    }
+
+    @Test
+    fun `supports mariadb connections as a first class driver`() {
+        val application = buildApplication()
+        application.loadConfig(
+            "database",
+            mapOf(
+                "default" to "main",
+                "connections" to mapOf(
+                    "main" to mapOf(
+                        "driver" to "mariadb",
+                        "url" to "jdbc:mariadb://127.0.0.1:3306/app",
+                        "username" to "app_user",
+                        "password" to "secret"
+                    )
+                )
+            )
+        )
+
+        val manager = DatabaseManager.from(application)
+
+        assertEquals(MariaDbDriver, manager.connectionConfig().driver)
+        assertTrue(manager.connectionConfig().supportsSchemaMigrations())
+        assertEquals(false, manager.connectionConfig().supportsSchemaTransactions())
     }
 
     private fun buildApplication(): Application {

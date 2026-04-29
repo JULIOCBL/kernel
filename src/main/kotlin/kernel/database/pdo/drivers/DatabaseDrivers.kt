@@ -3,11 +3,12 @@ package kernel.database.pdo.drivers
 /**
  * Registro simple de drivers soportados por el kernel.
  *
- * Por ahora solo existe PostgreSQL. Cuando agreguemos otro motor, debe entrar
+ * Hoy soporta PostgreSQL y MariaDB. Cuando agreguemos otro motor, debe entrar
  * aqui como un nuevo `DatabaseDriver` concreto.
  */
 object DatabaseDrivers {
     private val supportedDrivers: Map<String, DatabaseDriver> = buildMap {
+        register(MariaDbDriver)
         register(PostgreSqlDriver)
     }
 

@@ -1,13 +1,25 @@
-# Migraciones PostgreSQL
+# Migraciones SQL
 
 Este paquete permite declarar migraciones con Kotlin y generar SQL compatible
-con PostgreSQL. La sintaxis principal esta inspirada en Laravel migrations:
+con los motores soportados por el kernel. La sintaxis principal esta inspirada
+en Laravel migrations:
 `create`, `table`, `dropIfExists`, `rename`, columnas fluidas, indices y
 operaciones reversibles con `up` y `down`.
 
 No es una copia exacta de Laravel porque Kotlin tiene sus propias reglas. Por
 ejemplo, `enum` es palabra reservada, asi que para columnas enum usamos
 `enumColumn`.
+
+## Motores Soportados
+
+Hoy el kernel trae soporte oficial para:
+
+- `pgsql`
+- `mariadb`
+
+La DSL actual sigue siendo mas rica para PostgreSQL; MariaDB funciona sobre el
+subconjunto portable de migraciones y traduce automaticamente tipos y defaults
+comunes como `UUID`, `TIMESTAMPTZ`, `JSONB` y `SERIAL`.
 
 ## Ejemplo Rapido
 
@@ -32,7 +44,7 @@ class M0001_01_01_000000_create_users_table : Migration() {
 }
 ```
 
-SQL generado:
+SQL generado en PostgreSQL:
 
 ```sql
 CREATE TABLE IF NOT EXISTS users (
@@ -56,6 +68,16 @@ val generator = MigrationSqlGenerator()
 val upSql = generator.generateUp(migration)
 val downSql = generator.generateDown(migration)
 val statements = generator.generateUpStatements(migration)
+```
+
+Tambien puedes pedir SQL para un driver concreto:
+
+```kotlin
+import kernel.database.pdo.drivers.MariaDbDriver
+import kernel.database.pdo.drivers.PostgreSqlDriver
+
+val pgSql = generator.generateUp(migration, PostgreSqlDriver)
+val mariaSql = generator.generateUp(migration, MariaDbDriver)
 ```
 
 ## Descubrir Migraciones Por Convencion
@@ -155,6 +177,34 @@ Precedencia de conexion:
 - `migration.connectionName`
 - `MigrationRunOptions.database`
 - `database.default`
+
+## MariaDB En La Practica
+
+Si una conexion usa `driver = mariadb`, el `Migrator` cambia automaticamente a
+la gramática MariaDB para esa ejecucion.
+
+Ejemplo:
+
+```kotlin
+val migrator = Migrator(
+    repository = JdbcMigrationRepository(database),
+    resolver = database,
+    registry = registry
+)
+
+migrator.run(MigrationRunOptions(database = "logs"))
+```
+
+Con una configuracion como:
+
+```text
+database.default = main
+database.connections.main.driver = pgsql
+database.connections.logs.driver = mariadb
+```
+
+Asi puedes tener una app con PostgreSQL como conexion principal y MariaDB como
+conexion secundaria, igual que en Laravel.
 
 ## Generar Stubs
 
