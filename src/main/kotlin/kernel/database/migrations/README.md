@@ -18,8 +18,17 @@ Hoy el kernel trae soporte oficial para:
 - `mariadb`
 
 La DSL actual sigue siendo mas rica para PostgreSQL; MariaDB funciona sobre el
-subconjunto portable de migraciones y traduce automaticamente tipos y defaults
-comunes como `UUID`, `TIMESTAMPTZ`, `JSONB` y `SERIAL`.
+subconjunto portable de migraciones y traduce automaticamente helpers comunes
+como `increments`, `bigIncrements`, `binary`, `UUID`, `dateTime` y
+`timestampTz` al SQL concreto de cada motor.
+
+Internamente, el kernel ahora separa esta capa en:
+
+- `PortableMigrationDsl`: operaciones comunes como tablas, columnas, vistas e indices;
+- `PostgresMigrationDsl`: schemas, enums, domains, extensiones, funciones, secuencias y triggers;
+- `PortableTableDefinitionDsl` / `PortableTableAlterationDsl`: helpers comunes al DSL de tablas;
+- `PostgresTableDefinitionDsl` / `PostgresTableAlterationDsl`: constraints e indices propios de PostgreSQL;
+- `MigrationRepositoryDialect`: diferencias del repository de migraciones por motor.
 
 ## Ejemplo Rapido
 

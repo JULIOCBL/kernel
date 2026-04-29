@@ -1,5 +1,6 @@
 package kernel.database.migrations
 
+import kernel.database.migrations.repository.MigrationRepositoryDialects
 import kernel.database.pdo.connections.ConnectionResolver
 import java.sql.Connection
 
@@ -7,7 +8,8 @@ import java.sql.Connection
  * Repositorio JDBC simple para guardar el historial de migraciones ejecutadas.
  *
  * Soporta los motores oficiales actuales del kernel (`pgsql`, `mariadb`) y
- * adapta quoting, DDL basico y consulta de metadata segun la conexion activa.
+ * delega quoting, DDL basico y consulta de metadata al dialecto interno del
+ * repository segun la conexion activa.
  */
 class JdbcMigrationRepository(
     private val resolver: ConnectionResolver,
@@ -127,33 +129,21 @@ class JdbcMigrationRepository(
     override fun createRepository() {
         val connectionConfig = resolver.connectionConfig(sourceConnectionName)
         connectionConfig.requireSchemaMigrationSupport()
+        val dialect = MigrationRepositoryDialects.forDriver(connectionConfig.driver.id)
 
         withConnection { connection ->
             connection.createStatement().use { statement ->
-                statement.execute(createRepositorySql(connectionConfig.driver.id))
+                statement.execute(dialect.createRepositorySql(quotedTable()))
             }
         }
     }
 
     override fun repositoryExists(): Boolean {
-        val driverId = resolver.connectionConfig(sourceConnectionName).driver.id
+        val dialect = currentDialect()
         val (schema, tableName) = tableParts()
 
         return withConnection { connection ->
-            when (driverId) {
-                "mariadb" -> {
-                    val catalog = schema ?: connection.catalog
-                    connection.metaData.getTables(catalog, null, tableName, arrayOf("TABLE")).use { result ->
-                        result.next()
-                    }
-                }
-
-                else -> {
-                    connection.metaData.getTables(null, schema, tableName, arrayOf("TABLE")).use { result ->
-                        result.next()
-                    }
-                }
-            }
+            dialect.repositoryExists(connection, schema, tableName)
         }
     }
 
@@ -187,12 +177,12 @@ class JdbcMigrationRepository(
     }
 
     private fun quotedTable(): String {
-        val driverId = resolver.connectionConfig(sourceConnectionName).driver.id
+        val dialect = currentDialect()
         val (schema, tableName) = tableParts()
         return buildList {
             schema?.let(::add)
             add(tableName)
-        }.joinToString(".") { part -> quoteIdentifier(part, driverId) }
+        }.joinToString(".") { part -> dialect.quoteIdentifier(part) }
     }
 
     private fun tableParts(): Pair<String?, String> {
@@ -211,30 +201,9 @@ class JdbcMigrationRepository(
         return name?.trim()?.takeIf(String::isNotEmpty)
     }
 
-    private fun createRepositorySql(driverId: String): String {
-        return when (driverId) {
-            "mariadb" -> {
-                "create table if not exists ${quotedTable()} (" +
-                    "id bigint unsigned not null auto_increment primary key, " +
-                    "migration varchar(255) not null, " +
-                    "batch int not null)"
-            }
-
-            else -> {
-                "create table if not exists ${quotedTable()} (" +
-                    "id bigserial primary key, " +
-                    "migration varchar(255) not null, " +
-                    "batch integer not null)"
-            }
-        }
-    }
-
-    private fun quoteIdentifier(part: String, driverId: String): String {
-        return when (driverId) {
-            "mariadb" -> "`$part`"
-            else -> "\"$part\""
-        }
-    }
+    private fun currentDialect() = MigrationRepositoryDialects.forDriver(
+        resolver.connectionConfig(sourceConnectionName).driver.id
+    )
 
     companion object {
         const val DEFAULT_TABLE: String = "migrations"

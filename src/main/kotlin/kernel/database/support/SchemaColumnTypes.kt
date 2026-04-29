@@ -9,32 +9,53 @@ package kernel.database.support
 internal object SchemaColumnTypes {
     const val UUID = "UUID"
     const val TEXT = "TEXT"
+    const val TINYINT = "TINYINT"
     const val SMALLINT = "SMALLINT"
+    const val MEDIUMINT = "MEDIUMINT"
     const val INTEGER = "INTEGER"
     const val BIGINT = "BIGINT"
+    const val SMALLINCREMENTS = "SMALLINCREMENTS"
+    const val INCREMENTS = "INCREMENTS"
+    const val BIGINCREMENTS = "BIGINCREMENTS"
     const val SMALLSERIAL = "SMALLSERIAL"
     const val SERIAL = "SERIAL"
     const val BIGSERIAL = "BIGSERIAL"
     const val REAL = "REAL"
+    const val DOUBLE = "DOUBLE"
     const val DOUBLE_PRECISION = "DOUBLE PRECISION"
     const val MONEY = "MONEY"
     const val BOOLEAN = "BOOLEAN"
+    const val BINARY = "BINARY"
     const val BYTEA = "BYTEA"
+    const val TINYBLOB = "TINYBLOB"
+    const val BLOB = "BLOB"
+    const val MEDIUMBLOB = "MEDIUMBLOB"
+    const val LONGBLOB = "LONGBLOB"
     const val DATE = "DATE"
+    const val YEAR = "YEAR"
     const val JSON = "JSON"
     const val JSONB = "JSONB"
+    const val TINYTEXT = "TINYTEXT"
+    const val MEDIUMTEXT = "MEDIUMTEXT"
+    const val LONGTEXT = "LONGTEXT"
     const val XML = "XML"
     const val CIDR = "CIDR"
     const val INET = "INET"
     const val MACADDR = "MACADDR"
     const val MACADDR8 = "MACADDR8"
+    const val GEOMETRY = "GEOMETRY"
     const val POINT = "POINT"
     const val LINE = "LINE"
+    const val LINESTRING = "LINESTRING"
     const val LSEG = "LSEG"
     const val BOX = "BOX"
     const val PATH = "PATH"
     const val POLYGON = "POLYGON"
     const val CIRCLE = "CIRCLE"
+    const val GEOMETRYCOLLECTION = "GEOMETRYCOLLECTION"
+    const val MULTILINESTRING = "MULTILINESTRING"
+    const val MULTIPOINT = "MULTIPOINT"
+    const val MULTIPOLYGON = "MULTIPOLYGON"
     const val TSVECTOR = "TSVECTOR"
     const val TSQUERY = "TSQUERY"
     const val PG_LSN = "PG_LSN"
@@ -65,6 +86,13 @@ internal object SchemaColumnTypes {
      */
     fun varchar(length: Int): String {
         return "VARCHAR(${requirePositive(length, "Longitud")})"
+    }
+
+    /**
+     * Construye `VARBINARY(length)`.
+     */
+    fun varBinary(length: Int): String {
+        return "VARBINARY(${requirePositive(length, "Longitud")})"
     }
 
     /**
@@ -110,6 +138,13 @@ internal object SchemaColumnTypes {
     }
 
     /**
+     * Construye `DATETIME` con precision opcional.
+     */
+    fun dateTime(precision: Int? = null): String {
+        return temporalType("DATETIME", precision)
+    }
+
+    /**
      * Construye `TIMESTAMP` con precision opcional.
      */
     fun timestamp(precision: Int? = null): String {
@@ -150,6 +185,20 @@ internal object SchemaColumnTypes {
     }
 
     /**
+     * Construye `ENUM('a', 'b', ...)`.
+     */
+    fun enumValues(values: List<String>): String {
+        return "ENUM(${quotedValues(values)})"
+    }
+
+    /**
+     * Construye `SET('a', 'b', ...)`.
+     */
+    fun setValues(values: List<String>): String {
+        return "SET(${quotedValues(values)})"
+    }
+
+    /**
      * Agrega longitud a tipos que la soportan.
      */
     private fun sizedType(type: String, length: Int?): String {
@@ -185,5 +234,20 @@ internal object SchemaColumnTypes {
         require(value > 0) { "$label debe ser mayor que cero." }
 
         return value
+    }
+
+    private fun quotedValues(values: List<String>): String {
+        require(values.isNotEmpty()) {
+            "Debes indicar al menos un valor."
+        }
+
+        return values.joinToString(", ") { value ->
+            val normalized = value.trim()
+            require(normalized.isNotEmpty()) {
+                "Los valores no pueden estar vacios."
+            }
+
+            SqlLiteral.string(normalized)
+        }
     }
 }

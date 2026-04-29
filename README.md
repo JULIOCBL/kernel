@@ -135,6 +135,21 @@ Orden actual del kernel para esta capa:
 - `kernel.database.grammars`: traduccion del DSL a SQL por motor;
 - `kernel.database.migrations`: runner, repository, discovery, stubs y ciclo de vida.
 
+Dentro del DSL de columnas, la organizacion ahora separa:
+
+- `PortableColumnBlueprintSupport`: tipos comunes o compartidos;
+- `PostgresColumnBlueprintSupport`: extensiones exclusivas de PostgreSQL;
+- `MariaDbColumnBlueprintSupport`: extensiones exclusivas de MariaDB.
+
+Dentro del DSL de tablas y migraciones, la organizacion tambien quedo partida
+por responsabilidades:
+
+- `PortableTableDefinitionDsl` y `PortableTableAlterationDsl`: helpers comunes de tablas;
+- `PostgresTableDefinitionDsl` y `PostgresTableAlterationDsl`: extensiones PostgreSQL para constraints e indices;
+- `PortableMigrationDsl`: operaciones comunes del ciclo de migracion;
+- `PostgresMigrationDsl`: objetos de base de datos y primitivas avanzadas de PostgreSQL;
+- `MigrationRepositoryDialect`: diferencias de repository por motor para quoting, metadata y DDL.
+
 Importante:
 
 - hoy el kernel trae soporte oficial para `PostgreSqlDriver` y `MariaDbDriver`;

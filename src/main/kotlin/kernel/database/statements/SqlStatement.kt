@@ -1,7 +1,7 @@
 package kernel.database.statements
 
 /**
- * Operacion interna capaz de renderizar una sentencia PostgreSQL completa.
+ * Operacion interna capaz de renderizar una sentencia SQL final.
  */
 internal interface SqlStatement {
     /**

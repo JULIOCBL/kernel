@@ -79,6 +79,9 @@ class MariaDbGrammar : SchemaGrammar {
             RegexReplacement("""\bgen_random_uuid\(\)""") { "UUID()" },
             RegexReplacement("""::jsonb\b""") { "" },
             RegexReplacement("""::json\b""") { "" },
+            RegexReplacement("""\bBIGINCREMENTS\b""") { "BIGINT AUTO_INCREMENT" },
+            RegexReplacement("""\bSMALLINCREMENTS\b""") { "SMALLINT AUTO_INCREMENT" },
+            RegexReplacement("""\bINCREMENTS\b""") { "INT AUTO_INCREMENT" },
             RegexReplacement("""\bDOUBLE\s+PRECISION\b""") { "DOUBLE" },
             RegexReplacement("""\bTIMESTAMPTZ(?:\((\d+)\))?\b""") { match ->
                 match.groups[1]?.value?.let { precision -> "TIMESTAMP($precision)" } ?: "TIMESTAMP"
@@ -87,6 +90,7 @@ class MariaDbGrammar : SchemaGrammar {
                 match.groups[1]?.value?.let { precision -> "TIME($precision)" } ?: "TIME"
             },
             RegexReplacement("""\bJSONB\b""") { "JSON" },
+            RegexReplacement("""\bBINARY\b""") { "LONGBLOB" },
             RegexReplacement("""\bBYTEA\b""") { "LONGBLOB" },
             RegexReplacement("""\bSMALLSERIAL\b""") { "SMALLINT AUTO_INCREMENT" },
             RegexReplacement("""\bBIGSERIAL\b""") { "BIGINT AUTO_INCREMENT" },

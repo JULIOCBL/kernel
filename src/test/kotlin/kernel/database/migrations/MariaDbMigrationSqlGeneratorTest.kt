@@ -37,6 +37,7 @@ class MariaDbGrammarTest {
                 create("users") {
                     uuid("id").generatedUuid().primaryKey()
                     bigIncrements("sequence")
+                    binary("payload")
                     jsonb("metadata").notNull().defaultRaw("'{}'::jsonb")
                     timestampTz("created_at", precision = 6).notNull().defaultCurrentTimestamp()
                 }
@@ -49,6 +50,7 @@ class MariaDbGrammarTest {
 
         assertTrue(sql.contains("id CHAR(36) NOT NULL DEFAULT UUID()"), sql)
         assertTrue(sql.contains("sequence BIGINT AUTO_INCREMENT NOT NULL"), sql)
+        assertTrue(sql.contains("payload LONGBLOB"), sql)
         assertTrue(sql.contains("metadata JSON NOT NULL DEFAULT '{}'"), sql)
         assertTrue(sql.contains("created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP"), sql)
     }
@@ -68,6 +70,35 @@ class MariaDbGrammarTest {
         }
 
         assertTrue(error.message.orEmpty().contains("MariaDB"))
+    }
+
+    @Test
+    fun `supports mariadb specific numeric text and enum types`() {
+        val migration = object : Migration() {
+            override fun up() {
+                create("mariadb_catalog") {
+                    tinyInteger("tiny_score").notNull()
+                    mediumInteger("medium_score")
+                    double("rating")
+                    year("release_year")
+                    mediumText("notes")
+                    enumValues("status", "draft", "published").notNull()
+                    setValues("channels", "web", "mobile")
+                }
+            }
+
+            override fun down() = Unit
+        }
+
+        val sql = generator.generateUp(migration, MariaDbDriver)
+
+        assertTrue(sql.contains("tiny_score TINYINT NOT NULL"), sql)
+        assertTrue(sql.contains("medium_score MEDIUMINT"), sql)
+        assertTrue(sql.contains("rating DOUBLE"), sql)
+        assertTrue(sql.contains("release_year YEAR"), sql)
+        assertTrue(sql.contains("notes MEDIUMTEXT"), sql)
+        assertTrue(sql.contains("status ENUM('draft', 'published') NOT NULL"), sql)
+        assertTrue(sql.contains("channels SET('web', 'mobile')"), sql)
     }
 
     private fun playgroundRuntimeProbeMigration(): Migration {

@@ -12,90 +12,41 @@ class TableBlueprint internal constructor(tableName: String) : SchemaColumnBluep
     private val constraints = mutableListOf<TableConstraintDefinition>()
     private var primaryKey: PrimaryKeyDefinition? = null
 
-    /**
-     * Define una llave primaria compuesta o simple a nivel de tabla.
-     */
+    private val portableDsl = PortableTableDefinitionDsl(
+        tableName = name,
+        addConstraint = constraints::add,
+        setPrimaryKey = ::setPrimaryKeyDefinition
+    )
+
+    private val postgresDsl = PostgresTableDefinitionDsl(
+        addConstraint = constraints::add
+    )
+
     fun primaryKey(vararg columns: String) {
-        require(columns.isNotEmpty()) {
-            "La llave primaria debe contener al menos una columna."
-        }
-
-        val normalizedColumns = columns.map { column ->
-            SqlIdentifier.requireValid(column, "Columna de llave primaria")
-        }
-
-        require(normalizedColumns.distinct().size == normalizedColumns.size) {
-            "La llave primaria no puede repetir columnas."
-        }
-
-        primaryKey = PrimaryKeyDefinition(normalizedColumns)
+        portableDsl.primaryKey(*columns)
     }
 
-    /**
-     * Agrega una constraint `UNIQUE` a nivel de tabla.
-     */
     fun unique(vararg columns: String, name: String? = null) {
-        val normalizedColumns = columnNames(columns.toList())
-
-        constraints += UniqueConstraintDefinition(
-            name = name?.let { value -> SqlIdentifier.requireValid(value, "Nombre de constraint") }
-                ?: defaultName(normalizedColumns, "unique"),
-            columns = normalizedColumns
-        )
+        portableDsl.unique(*columns, name = name)
     }
 
-    /**
-     * Agrega una constraint `CHECK` a nivel de tabla.
-     */
     fun check(name: String, expression: String) {
-        constraints += CheckConstraintDefinition(
-            name = SqlIdentifier.requireValid(name, "Nombre de constraint"),
-            expression = sqlFragment(expression, "Expresion CHECK")
-        )
+        portableDsl.check(name, expression)
     }
 
-    /**
-     * Agrega una foreign key a nivel de tabla y devuelve su builder fluido.
-     */
     fun foreign(vararg columns: String, name: String? = null): ForeignKeyDefinition {
-        val normalizedColumns = columnNames(columns.toList())
-        val foreignKey = ForeignKeyDefinition(
-            name = name?.let { value -> SqlIdentifier.requireValid(value, "Nombre de foreign key") }
-                ?: defaultName(normalizedColumns, "foreign"),
-            columns = normalizedColumns
-        )
-
-        constraints += foreignKey
-
-        return foreignKey
+        return portableDsl.foreign(*columns, name = name)
     }
 
-    /**
-     * Agrega una constraint `EXCLUDE`.
-     *
-     * Esta primitiva depende de que la gramatica del motor la soporte.
-     */
     fun exclude(
         name: String,
         using: String,
         vararg elements: String,
         where: String? = null
     ) {
-        require(elements.isNotEmpty()) {
-            "Debes indicar al menos un elemento para EXCLUDE."
-        }
-
-        constraints += ExcludeConstraintDefinition(
-            name = SqlIdentifier.requireValid(name, "Nombre de constraint"),
-            using = SqlIdentifier.requireValid(using, "Metodo de indice"),
-            elements = elements.map { element -> sqlFragment(element, "Elemento EXCLUDE") },
-            where = where?.let { expression -> sqlFragment(expression, "Expresion WHERE") }
-        )
+        postgresDsl.exclude(name, using, elements, where)
     }
 
-    /**
-     * Valida y construye la definicion inmutable de la tabla.
-     */
     internal fun build(): TableDefinition {
         require(columns.isNotEmpty()) {
             "La tabla '$name' debe contener al menos una columna."
@@ -131,9 +82,6 @@ class TableBlueprint internal constructor(tableName: String) : SchemaColumnBluep
         )
     }
 
-    /**
-     * Agrega una columna a la tabla evitando nombres duplicados.
-     */
     override fun addColumn(name: String, type: String): ColumnDefinition {
         val columnName = SqlIdentifier.requireValid(name, "Nombre de columna")
 
@@ -146,42 +94,7 @@ class TableBlueprint internal constructor(tableName: String) : SchemaColumnBluep
         }
     }
 
-    /**
-     * Valida una lista no vacia de columnas sin duplicados.
-     */
-    private fun columnNames(columns: List<String>): List<String> {
-        require(columns.isNotEmpty()) {
-            "Debes indicar al menos una columna."
-        }
-
-        val normalizedColumns = columns.map { column ->
-            SqlIdentifier.requireValid(column, "Nombre de columna")
-        }
-
-        require(normalizedColumns.distinct().size == normalizedColumns.size) {
-            "No puedes repetir columnas."
-        }
-
-        return normalizedColumns
-    }
-
-    /**
-     * Genera nombres convencionales para constraints cuando no se especifican.
-     */
-    private fun defaultName(columns: List<String>, suffix: String): String {
-        return "${name.substringAfterLast('.')}_${columns.joinToString("_")}_$suffix"
-    }
-
-    /**
-     * Normaliza expresiones SQL libres usadas en constraints.
-     */
-    private fun sqlFragment(value: String, label: String): String {
-        val fragment = value.trim()
-
-        require(fragment.isNotEmpty()) {
-            "$label no puede estar vacio."
-        }
-
-        return fragment
+    private fun setPrimaryKeyDefinition(definition: PrimaryKeyDefinition) {
+        primaryKey = definition
     }
 }
