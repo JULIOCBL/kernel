@@ -19,6 +19,8 @@ data class DatabaseConnectionConfig(
 ) {
     fun supportsSchemaMigrations(): Boolean = driver.supportsSchemaMigrations
 
+    fun supportsSchemaTransactions(): Boolean = driver.supportsSchemaTransactions
+
     fun requireSchemaMigrationSupport() {
         require(supportsSchemaMigrations()) {
             "La conexion `$name` usa `${driver.id}`, pero el kernel solo soporta migraciones/schema para: " +

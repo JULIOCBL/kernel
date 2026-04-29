@@ -58,6 +58,49 @@ val downSql = generator.generateDown(migration)
 val statements = generator.generateUpStatements(migration)
 ```
 
+## Ejecutar Migraciones Registradas
+
+El kernel no descubre clases Kotlin automaticamente como Laravel descubre
+archivos `.php`. En lugar de eso usa un registry explicito:
+
+```kotlin
+val registry = MigrationRegistry(
+    listOf(
+        migrationFactory(::M0001_01_01_000000_create_users_table)
+    )
+)
+```
+
+Luego puedes crear un `Migrator` usando un `ConnectionResolver` y un
+`MigrationRepository`:
+
+```kotlin
+val database = kernel.database.DatabaseManager.from(app)
+
+val migrator = Migrator(
+    repository = JdbcMigrationRepository(database),
+    resolver = database,
+    registry = registry
+)
+
+migrator.run()
+migrator.run(MigrationRunOptions(database = "logs"))
+migrator.run(
+    MigrationRunOptions(
+        only = setOf("M0001_01_01_000000_create_users_table")
+    )
+)
+
+migrator.status()
+migrator.status(MigrationStatusOptions(database = "logs"))
+```
+
+Precedencia de conexion:
+
+- `migration.connectionName`
+- `MigrationRunOptions.database`
+- `database.default`
+
 ## Generar Stubs
 
 Tambien puedes generar el codigo base de una migracion antes de guardarlo en

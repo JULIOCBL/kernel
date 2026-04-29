@@ -14,6 +14,7 @@ interface DatabaseDriver {
     val id: String
     val defaultJdbcDriverClass: String
     val supportsSchemaMigrations: Boolean
+    val supportsSchemaTransactions: Boolean
 
     fun buildJdbcUrl(
         host: String,

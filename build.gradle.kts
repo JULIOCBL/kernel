@@ -39,6 +39,7 @@ tasks.withType<KotlinCompile>().configureEach {
 }
 
 dependencies {
+    runtimeOnly("org.postgresql:postgresql:42.7.4")
     testImplementation(kotlin("test-junit5"))
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

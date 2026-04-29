@@ -4,6 +4,7 @@ object PostgreSqlDriver : DatabaseDriver {
     override val id: String = "pgsql"
     override val defaultJdbcDriverClass: String = "org.postgresql.Driver"
     override val supportsSchemaMigrations: Boolean = true
+    override val supportsSchemaTransactions: Boolean = true
 
     override fun buildJdbcUrl(
         host: String,

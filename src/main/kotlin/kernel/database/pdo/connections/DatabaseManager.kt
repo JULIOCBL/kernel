@@ -8,14 +8,14 @@ import java.sql.Connection
  */
 class DatabaseManager private constructor(
     private val configuration: DatabaseConnectionsConfig
-) {
-    fun defaultConnectionName(): String = configuration.defaultConnection
+) : ConnectionResolver {
+    override fun defaultConnectionName(): String = configuration.defaultConnection
 
     fun connectionNames(): List<String> = configuration.connections.keys.toList()
 
     fun hasConnection(name: String): Boolean = configuration.connections.containsKey(name)
 
-    fun connectionConfig(name: String? = null): DatabaseConnectionConfig {
+    override fun connectionConfig(name: String?): DatabaseConnectionConfig {
         val targetName = name?.trim().takeUnless { it.isNullOrEmpty() }
             ?: configuration.defaultConnection
 
@@ -25,6 +25,10 @@ class DatabaseManager private constructor(
 
     fun connect(name: String? = null): Connection {
         return connectionConfig(name).open()
+    }
+
+    override fun connection(name: String?): Connection {
+        return connect(name)
     }
 
     inline fun <T> withConnection(

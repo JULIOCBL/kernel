@@ -55,6 +55,20 @@ import kernel.database.migrations.support.SqlIdentifier
  * se pueden convertir a SQL usando `upSql`, `downSql` o `MigrationSqlGenerator`.
  */
 abstract class Migration {
+    /**
+     * Nombre opcional de la conexion que esta migracion desea usar.
+     *
+     * Si no se define, el migrator podra usar la conexion pedida por comando o
+     * la conexion default de la app.
+     */
+    open val connectionName: String? = null
+
+    /**
+     * Indica si la migracion debe ejecutarse dentro de una transaccion cuando
+     * el driver soporte transacciones de schema.
+     */
+    open val withinTransaction: Boolean = true
+
     private var collector: MigrationCollector? = null
 
     /**

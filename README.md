@@ -27,7 +27,9 @@ Convertir `kernel` en una base estandar para construir apps Kotlin con:
 - manager ligero de conexiones multiples de base de datos;
 - utilidades `dump()` y `dd()` para depuracion de consola;
 - introspeccion segura de objetos para `dump()` y `dd()` con limites de profundidad y truncado;
-- DSL y generacion de migraciones.
+- DSL y generacion de migraciones;
+- `Migrator`, `MigrationRegistry` y `MigrationRepository` para ejecutar y consultar migraciones registradas explicitamente;
+- comando base `migrate`.
 
 Puedes ajustar esos limites en `kernel.debug.DebugConfig`.
 Por defecto vienen en `null`, asi que `dump()` y `dd()` no recortan nada.
@@ -179,6 +181,7 @@ src/test/kotlin/kernel
 - [x] Config store base.
 - [x] Contrato `ConfigFile` para configuracion en Kotlin por namespace.
 - [x] Sistema de migraciones y stubs.
+- [x] Runner base de migraciones con conexiones nombradas.
 - [x] `Application` como punto central de bootstrap.
 - [ ] Container / IoC.
 - [x] `ServiceProvider`.
