@@ -275,6 +275,7 @@ src/test/kotlin/kernel
 - [ ] Carga de `routes/console`.
 - [ ] `HttpKernel`.
 - [ ] Router `web` y `api`.
+- [x] Router `desktop` y `api` para apps desktop internas.
 - [ ] Pipeline de middleware.
 - [ ] Base controller.
 - [ ] Render de vistas.
@@ -290,6 +291,23 @@ Para que siga siendo reusable:
 - los comandos del framework deben poder convivir con comandos de la app;
 - la generacion de archivos debe permitir cambiar package y ruta de salida;
 - el ciclo de arranque debe ser igual para cualquier app consumidora.
+
+## Rutas Desktop y Api
+
+En el estado actual del kernel, `desktop` y `api` tienen responsabilidades
+distintas y no deben mezclarse:
+
+- `desktop` es para navegacion visual de una app desktop;
+- `desktop` puede entrar por deep links del sistema operativo;
+- `desktop` usa un scheme externo configurable, por ejemplo `kernelplayground://`;
+- `api` es para enrutamiento interno entre modulos o servicios locales;
+- `api` no debe registrarse como deep link del sistema operativo;
+- `api` no participa en el flujo de `SingleInstanceHandler`.
+
+En otras palabras:
+
+- solo `desktop` reacciona a links externos y a segunda instancia;
+- `api` existe como router interno, no como protocolo publico del SO.
 
 ## Que Debe Repetirse En Cualquier App
 

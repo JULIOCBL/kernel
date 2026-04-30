@@ -18,6 +18,24 @@
   todos sus providers.
 - Las listas declarativas de providers viven mejor en un bootstrap central.
 
+## Routing Desktop y Api
+
+- `desktop` y `api` no son intercambiables.
+- Solo `desktop` puede usar deep links externos del sistema operativo.
+- `api` debe mantenerse como router interno y no debe conectarse a
+  `SingleInstanceHandler` ni a protocolos publicos del SO.
+- Si un cambio toca rutas y empieza a leer `api://` desde argumentos de
+  arranque o segunda instancia, eso probablemente esta mal.
+
+## Ejemplos del Framework
+
+- Cuando construyas ejemplos, demos o vistas base del framework, evita dominios
+  de negocio concretos como ventas, clientes, facturación o inventario salvo
+  que el usuario lo pida explícitamente.
+- Los nombres de rutas, vistas, modelos y controladores del playground deben
+  tender a ser genéricos y pedagógicos: `welcome`, `dashboard`, `docs`,
+  `routing`, `database`, `providers`, `settings`.
+
 ## Regla Practica
 
 Antes de tocar bootstrap o helpers globales, confirma si el flujo esperado es:

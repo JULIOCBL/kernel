@@ -1,0 +1,141 @@
+package kernel.providers
+
+import kernel.foundation.Application
+import kernel.foundation.SingleInstanceHandler
+import kernel.routing.ApiRouter
+import kernel.routing.ControllerRegistry
+import kernel.routing.DefaultDesktopViewDispatcher
+import kernel.routing.DesktopNavigator
+import kernel.routing.DesktopRouter
+import kernel.routing.DesktopView
+import kernel.routing.DesktopViewDispatcher
+import kernel.routing.RouteModuleLoader
+import kernel.routing.RouteResolution
+import kernel.routing.RouteStateStore
+
+/**
+ * Provider global de rutas del kernel.
+ *
+ * Crea y carga los routers de `desktop` y `api` siguiendo una convención de
+ * archivos estilo Laravel dentro de `app.namespace.routes`.
+ */
+open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
+    override fun register() {
+        val desktopScheme = desktopScheme()
+        val apiScheme = apiScheme()
+        val desktopRouter = DesktopRouter(desktopScheme)
+        val apiRouter = ApiRouter(apiScheme)
+        val desktopRouteState = RouteStateStore<RouteResolution>()
+        val desktopViewState = RouteStateStore<DesktopView>()
+        val controllerRegistry = ControllerRegistry()
+        val desktopViewDispatcher =
+            app.config.get("services.routes.desktop.dispatcher") as? DesktopViewDispatcher
+                ?: DefaultDesktopViewDispatcher
+        val desktopNavigator = DesktopNavigator(
+            scheme = desktopScheme,
+            router = desktopRouter,
+            routeState = desktopRouteState,
+            viewState = desktopViewState,
+            viewDispatcher = desktopViewDispatcher
+        ) { resolution, view, routeConfigKey, viewConfigKey ->
+            app.config.set(routeConfigKey, resolution)
+            app.config.set(viewConfigKey, view)
+        }
+
+        app.config.set("services.routes.desktop.router", desktopRouter)
+        app.config.set("services.routes.desktop.state", desktopRouteState)
+        app.config.set("services.routes.desktop.view_state", desktopViewState)
+        app.config.set("services.routes.desktop.dispatcher", desktopViewDispatcher)
+        app.config.set("services.routes.desktop.navigator", desktopNavigator)
+        app.config.set("services.routes.api.router", apiRouter)
+        app.config.set("services.routes.controllers", controllerRegistry)
+
+        // Alias de compatibilidad mientras se migra el código viejo.
+        app.config.set("services.router", desktopRouter)
+    }
+
+    override fun boot() {
+        val desktopRouter = app.config.get("services.routes.desktop.router") as DesktopRouter
+        val apiRouter = app.config.get("services.routes.api.router") as ApiRouter
+        val desktopNavigator = desktopNavigator()
+
+        RouteModuleLoader.loadDesktopRoutes(app, desktopRouter)
+        RouteModuleLoader.loadApiRoutes(app, apiRouter)
+
+        val handler = SingleInstanceHandler(
+            app.config.string("routing.desktop.singleInstanceKey", "kernel-playground")
+        )
+
+        val isPrimary = handler.isPrimaryInstance { newUrl ->
+            desktopNavigator.navigate(newUrl)
+        }
+
+        if (isPrimary) {
+            findDeepLinkArgument()?.let { deepLink ->
+                desktopNavigator.navigateInitial(deepLink)
+            } ?: desktopNavigator.navigateInitial(defaultDesktopUri())
+        } else {
+            findDeepLinkArgument()?.let(handler::sendUrlToPrimary)
+        }
+    }
+
+    private fun findDeepLinkArgument(): String? {
+        val expectedPrefix = desktopScheme().trim()
+        val args = System.getProperty("sun.java.command")?.split(" ") ?: emptyList()
+
+        return args.firstOrNull { candidate ->
+            candidate.startsWith("$expectedPrefix://")
+        }
+    }
+
+    private fun desktopNavigator(): DesktopNavigator {
+        return app.config.get("services.routes.desktop.navigator") as? DesktopNavigator
+            ?: error("DesktopNavigator no esta registrado en services.routes.desktop.navigator.")
+    }
+
+    private fun desktopScheme(): String {
+        return configuredValue(
+            primaryKey = "routing.desktop.scheme",
+            legacyKey = "app.routing.desktop.scheme",
+            default = "myapp"
+        )
+    }
+
+    private fun apiScheme(): String {
+        return configuredValue(
+            primaryKey = "routing.api.scheme",
+            legacyKey = "app.routing.api.scheme",
+            default = "api"
+        )
+    }
+
+    private fun configuredValue(primaryKey: String, legacyKey: String, default: String): String {
+        val primary = app.config.string(primaryKey).trim()
+        if (primary.isNotBlank()) {
+            return primary
+        }
+
+        val legacy = app.config.string(legacyKey).trim()
+        if (legacy.isNotBlank()) {
+            return legacy
+        }
+
+        return default
+    }
+
+    private fun defaultDesktopUri(): String {
+        val path = configuredValue(
+            primaryKey = "routing.desktop.home",
+            legacyKey = "app.routing.desktop.home",
+            default = "/"
+        )
+
+        val normalizedPath = when {
+            path.isBlank() -> "/"
+            path.startsWith("/") -> path
+            else -> "/$path"
+        }
+
+        return "${desktopScheme()}://$normalizedPath"
+    }
+}
