@@ -9,6 +9,7 @@ import kernel.routing.DesktopNavigator
 import kernel.routing.DesktopRouter
 import kernel.routing.DesktopView
 import kernel.routing.DesktopViewDispatcher
+import kernel.routing.LinkGenerator
 import kernel.routing.RouteModuleLoader
 import kernel.routing.RouteResolution
 import kernel.routing.RouteStateStore
@@ -24,6 +25,7 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
         val desktopScheme = desktopScheme()
         val apiScheme = apiScheme()
         val desktopRouter = DesktopRouter(desktopScheme)
+        val desktopLinks = LinkGenerator(desktopScheme)
         val apiRouter = ApiRouter(apiScheme)
         val desktopRouteState = RouteStateStore<RouteResolution>()
         val desktopViewState = RouteStateStore<DesktopView>()
@@ -32,7 +34,7 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
             app.config.get("services.routes.desktop.dispatcher") as? DesktopViewDispatcher
                 ?: DefaultDesktopViewDispatcher
         val desktopNavigator = DesktopNavigator(
-            scheme = desktopScheme,
+            links = desktopLinks,
             router = desktopRouter,
             routeState = desktopRouteState,
             viewState = desktopViewState,
@@ -43,6 +45,7 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
         }
 
         app.config.set("services.routes.desktop.router", desktopRouter)
+        app.config.set("services.routes.desktop.links", desktopLinks)
         app.config.set("services.routes.desktop.state", desktopRouteState)
         app.config.set("services.routes.desktop.view_state", desktopViewState)
         app.config.set("services.routes.desktop.dispatcher", desktopViewDispatcher)
@@ -80,11 +83,11 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
     }
 
     private fun findDeepLinkArgument(): String? {
-        val expectedPrefix = desktopScheme().trim()
+        val desktopLinks = desktopLinks()
         val args = System.getProperty("sun.java.command")?.split(" ") ?: emptyList()
 
         return args.firstOrNull { candidate ->
-            candidate.startsWith("$expectedPrefix://")
+            desktopLinks.matches(candidate)
         }
     }
 
@@ -93,11 +96,16 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
             ?: error("DesktopNavigator no esta registrado en services.routes.desktop.navigator.")
     }
 
+    private fun desktopLinks(): LinkGenerator {
+        return app.config.get("services.routes.desktop.links") as? LinkGenerator
+            ?: error("LinkGenerator no esta registrado en services.routes.desktop.links.")
+    }
+
     private fun desktopScheme(): String {
         return configuredValue(
-            primaryKey = "routing.desktop.scheme",
-            legacyKey = "app.routing.desktop.scheme",
-            default = "myapp"
+            primaryKey = "app.scheme",
+            legacyKey = "routing.desktop.scheme",
+            default = "kernelplayground"
         )
     }
 
@@ -136,6 +144,6 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
             else -> "/$path"
         }
 
-        return "${desktopScheme()}://$normalizedPath"
+        return desktopLinks().desktop(normalizedPath)
     }
 }

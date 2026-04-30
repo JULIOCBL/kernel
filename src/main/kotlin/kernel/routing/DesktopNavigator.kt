@@ -7,7 +7,7 @@ package kernel.routing
  * router, del dispatcher ni del estado observable interno.
  */
 class DesktopNavigator(
-    private val scheme: String,
+    private val links: LinkGenerator,
     private val router: DesktopRouter,
     private val routeState: RouteStateStore<RouteResolution>,
     private val viewState: RouteStateStore<DesktopView>,
@@ -27,26 +27,11 @@ class DesktopNavigator(
         routeConfigKey: String,
         viewConfigKey: String
     ): DesktopView? {
-        val resolution = router.resolve(toDesktopUri(pathOrUri)) ?: return null
+        val resolution = router.resolve(links.desktop(pathOrUri)) ?: return null
         val view = viewDispatcher.dispatch(resolution) ?: return null
         routeState.update(resolution)
         viewState.update(view)
         onNavigation(resolution, view, routeConfigKey, viewConfigKey)
         return view
-    }
-
-    private fun toDesktopUri(pathOrUri: String): String {
-        val trimmed = pathOrUri.trim()
-        if (trimmed.startsWith("$scheme://")) {
-            return trimmed
-        }
-
-        val normalizedPath = when {
-            trimmed.isBlank() -> "/"
-            trimmed.startsWith("/") -> trimmed
-            else -> "/$trimmed"
-        }
-
-        return "$scheme://$normalizedPath"
     }
 }
