@@ -13,6 +13,18 @@ internal object RouteModuleLoader {
     }
 
     fun loadApiRoutes(app: Application, router: ApiRouter) {
+        val loadedInternal = invokeLoader(
+            app = app,
+            defaultClassName = "${routeNamespace(app)}.InternalKt",
+            methodName = "defineInternalRoutes",
+            router = router,
+            optional = true
+        )
+
+        if (loadedInternal) {
+            return
+        }
+
         invokeLoader(
             app = app,
             defaultClassName = "${routeNamespace(app)}.ApiKt",
@@ -34,8 +46,9 @@ internal object RouteModuleLoader {
         app: Application,
         defaultClassName: String,
         methodName: String,
-        router: SchemeRouter
-    ) {
+        router: SchemeRouter,
+        optional: Boolean = false
+    ): Boolean {
         val configuredClassName = app.config.string(
             "routing.loaders.$methodName.class",
             defaultClassName
@@ -51,7 +64,7 @@ internal object RouteModuleLoader {
         val routeClass = try {
             Class.forName(configuredClassName, false, classLoader)
         } catch (_: ClassNotFoundException) {
-            return
+            return false
         }
 
         val noArgMethod = routeClass.methods.firstOrNull { method ->
@@ -62,7 +75,7 @@ internal object RouteModuleLoader {
             Route.withRouter(router) {
                 noArgMethod.invoke(null)
             }
-            return
+            return true
         }
 
         val routerMethod = routeClass.methods.firstOrNull { method ->
@@ -73,7 +86,11 @@ internal object RouteModuleLoader {
 
         if (routerMethod != null) {
             routerMethod.invoke(null, router)
-            return
+            return true
+        }
+
+        if (optional) {
+            return false
         }
 
         error(
