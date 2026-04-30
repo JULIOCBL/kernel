@@ -39,6 +39,7 @@ tasks.withType<KotlinCompile>().configureEach {
 }
 
 dependencies {
+    implementation("com.zaxxer:HikariCP:6.2.1")
     implementation(kotlin("reflect"))
     runtimeOnly("org.mariadb.jdbc:mariadb-java-client:3.4.1")
     runtimeOnly("org.postgresql:postgresql:42.7.4")

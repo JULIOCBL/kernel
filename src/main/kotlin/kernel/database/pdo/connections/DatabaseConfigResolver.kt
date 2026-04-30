@@ -67,6 +67,10 @@ object DatabaseConfigResolver {
             value = rawConnection["properties"],
             keyPath = "database.connections.$connectionName.properties"
         )
+        val pool = poolConfig(
+            value = rawConnection["pool"],
+            keyPath = "database.connections.$connectionName.pool"
+        )
 
         return DatabaseConnectionConfig(
             name = connectionName,
@@ -75,7 +79,8 @@ object DatabaseConfigResolver {
             jdbcDriverClass = jdbcDriverClass,
             username = username,
             password = password,
-            properties = properties
+            properties = properties,
+            pool = pool
         )
     }
 
@@ -108,5 +113,50 @@ object DatabaseConfigResolver {
         }
 
         return normalized.toMap()
+    }
+
+    private fun poolConfig(value: Any?, keyPath: String): DatabasePoolConfig {
+        if (value == null) {
+            return DatabasePoolConfig()
+        }
+
+        val rawMap = value as? Map<*, *>
+            ?: throw IllegalArgumentException("La configuracion `$keyPath` debe ser un mapa.")
+
+        return DatabasePoolConfig(
+            enabled = boolValue(rawMap["enabled"], true),
+            minimumIdle = intValue(rawMap["minimumIdle"], 1),
+            maximumPoolSize = intValue(rawMap["maximumPoolSize"], 10),
+            idleTimeoutMs = longValue(rawMap["idleTimeoutMs"], 120_000L),
+            connectionTimeoutMs = longValue(rawMap["connectionTimeoutMs"], 30_000L),
+            maxLifetimeMs = longValue(rawMap["maxLifetimeMs"], 600_000L),
+            keepAliveTimeMs = longValue(rawMap["keepAliveTimeMs"], 0L),
+            validationTimeoutMs = longValue(rawMap["validationTimeoutMs"], 5_000L)
+        )
+    }
+
+    private fun boolValue(value: Any?, default: Boolean): Boolean {
+        return when (value) {
+            null -> default
+            is Boolean -> value
+            is Number -> value.toInt() != 0
+            else -> value.toString().trim().lowercase() in setOf("1", "true", "yes", "on")
+        }
+    }
+
+    private fun intValue(value: Any?, default: Int): Int {
+        return when (value) {
+            is Number -> value.toInt()
+            null -> default
+            else -> value.toString().trim().toIntOrNull() ?: default
+        }
+    }
+
+    private fun longValue(value: Any?, default: Long): Long {
+        return when (value) {
+            is Number -> value.toLong()
+            null -> default
+            else -> value.toString().trim().toLongOrNull() ?: default
+        }
     }
 }

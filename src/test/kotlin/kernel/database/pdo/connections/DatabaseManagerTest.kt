@@ -107,12 +107,44 @@ class DatabaseManagerTest {
         manager.withConnection { connection ->
             assertTrue(connection.isWrapperFor(Connection::class.java))
         }
+        manager.close()
 
         assertEquals("jdbc:kernel-test:analytics", fakeDriver.lastUrl)
         assertEquals("analytics_user", fakeDriver.lastProperties!!.getProperty("user"))
         assertEquals("analytics_pass", fakeDriver.lastProperties!!.getProperty("password"))
         assertEquals("reporting", fakeDriver.lastProperties!!.getProperty("schema"))
         assertTrue(fakeDriver.lastConnectionClosed)
+    }
+
+    @Test
+    fun `manager is cached per application and pool config is materialized`() {
+        val application = buildApplication()
+        application.loadConfig(
+            "database",
+            mapOf(
+                "default" to "main",
+                "connections" to mapOf(
+                    "main" to mapOf(
+                        "driver" to "pgsql",
+                        "jdbcDriver" to FakeDriver::class.java.name,
+                        "url" to "jdbc:kernel-test:main",
+                        "pool" to mapOf(
+                            "enabled" to true,
+                            "minimumIdle" to 2,
+                            "maximumPoolSize" to 12
+                        )
+                    )
+                )
+            )
+        )
+
+        val first = DatabaseManager.from(application)
+        val second = DatabaseManager.from(application)
+
+        assertTrue(first === second)
+        assertEquals(true, first.connectionConfig().pool.enabled)
+        assertEquals(2, first.connectionConfig().pool.minimumIdle)
+        assertEquals(12, first.connectionConfig().pool.maximumPoolSize)
     }
 
     @Test
@@ -270,7 +302,7 @@ class DatabaseManagerTest {
     }
 }
 
-private class FakeDriver : Driver {
+internal class FakeDriver : Driver {
     var lastUrl: String? = null
     var lastProperties: Properties? = null
     var lastConnectionClosed: Boolean = false

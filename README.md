@@ -123,9 +123,26 @@ database.withConnection("analytics") { connection ->
 }
 ```
 
-Por ahora esto abre conexiones JDBC directas. El contrato esta pensado para que
-mas adelante podamos introducir pooling o `DataSource` sin romper la forma en
-que la app elige conexiones por nombre.
+Hoy el kernel usa pooling con HikariCP por defecto. La app sigue pidiendo
+conexiones por nombre igual que antes, pero internamente cada
+`DatabaseConnectionConfig` puede mantener su `DataSource` pooled.
+
+Si una app quiere ajustar el pool por conexión, puede definir:
+
+```kotlin
+"pool" to mapOf(
+    "enabled" to true,
+    "minimumIdle" to 1,
+    "maximumPoolSize" to 10,
+    "idleTimeoutMs" to 120_000,
+    "connectionTimeoutMs" to 30_000,
+    "maxLifetimeMs" to 600_000
+)
+```
+
+`DatabaseManager.from(app)` además se cachea por `Application`, así que una app
+desktop abierta durante horas no recrea pools nuevos cada vez que alguien pide
+el manager otra vez.
 
 Orden actual del kernel para esta capa:
 

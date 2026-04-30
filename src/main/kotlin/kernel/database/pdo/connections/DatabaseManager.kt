@@ -8,7 +8,7 @@ import java.sql.Connection
  */
 class DatabaseManager private constructor(
     private val configuration: DatabaseConnectionsConfig
-) : ConnectionResolver {
+) : ConnectionResolver, AutoCloseable {
     override fun defaultConnectionName(): String = configuration.defaultConnection
 
     fun connectionNames(): List<String> = configuration.connections.keys.toList()
@@ -38,9 +38,20 @@ class DatabaseManager private constructor(
         return connect(name).use(block)
     }
 
+    override fun close() {
+        configuration.connections.values.forEach(DatabaseConnectionConfig::close)
+    }
+
     companion object {
         fun from(application: Application): DatabaseManager {
-            return from(application.config)
+            val existing = application.config.get("services.database.manager") as? DatabaseManager
+            if (existing != null) {
+                return existing
+            }
+
+            return from(application.config).also { manager ->
+                application.config.set("services.database.manager", manager)
+            }
         }
 
         fun from(config: kernel.config.ConfigStore): DatabaseManager {

@@ -1,9 +1,12 @@
 package kernel.database.pdo.connections
 
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 import kernel.database.pdo.drivers.DatabaseDriver
 import java.sql.Connection
 import java.sql.DriverManager
 import java.util.Properties
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Configuracion materializada de una conexion de base de datos.
@@ -15,8 +18,11 @@ data class DatabaseConnectionConfig(
     val jdbcDriverClass: String? = null,
     val username: String? = null,
     val password: String? = null,
-    val properties: Map<String, String> = emptyMap()
+    val properties: Map<String, String> = emptyMap(),
+    val pool: DatabasePoolConfig = DatabasePoolConfig()
 ) {
+    private val dataSourceRef = AtomicReference<HikariDataSource?>()
+
     fun supportsSchemaMigrations(): Boolean = driver.supportsSchemaMigrations
 
     fun supportsSchemaTransactions(): Boolean = driver.supportsSchemaTransactions
@@ -29,6 +35,10 @@ data class DatabaseConnectionConfig(
     }
 
     fun open(): Connection {
+        if (pool.enabled) {
+            return pooledDataSource().connection
+        }
+
         loadDriverIfNeeded()
 
         val connectionProperties = Properties()
@@ -49,8 +59,48 @@ data class DatabaseConnectionConfig(
         }
     }
 
+    fun close() {
+        dataSourceRef.getAndSet(null)?.close()
+    }
+
     private fun loadDriverIfNeeded() {
         Class.forName(resolvedJdbcDriverClass())
+    }
+
+    private fun pooledDataSource(): HikariDataSource {
+        dataSourceRef.get()?.let { return it }
+
+        val created = createPooledDataSource()
+        if (dataSourceRef.compareAndSet(null, created)) {
+            return created
+        }
+
+        created.close()
+        return dataSourceRef.get()!!
+    }
+
+    private fun createPooledDataSource(): HikariDataSource {
+        loadDriverIfNeeded()
+
+        val hikari = HikariConfig().apply {
+            poolName = "kernel-$name"
+            jdbcUrl = url
+            driverClassName = resolvedJdbcDriverClass()
+            username = this@DatabaseConnectionConfig.username
+            password = this@DatabaseConnectionConfig.password
+            minimumIdle = pool.minimumIdle
+            maximumPoolSize = pool.maximumPoolSize
+            idleTimeout = pool.idleTimeoutMs
+            connectionTimeout = pool.connectionTimeoutMs
+            maxLifetime = pool.maxLifetimeMs
+            validationTimeout = pool.validationTimeoutMs
+            if (pool.keepAliveTimeMs > 0) {
+                keepaliveTime = pool.keepAliveTimeMs
+            }
+            properties.forEach(::addDataSourceProperty)
+        }
+
+        return HikariDataSource(hikari)
     }
 
     private fun resolvedJdbcDriverClass(): String {
