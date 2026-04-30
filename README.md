@@ -144,6 +144,24 @@ Si una app quiere ajustar el pool por conexión, puede definir:
 desktop abierta durante horas no recrea pools nuevos cada vez que alguien pide
 el manager otra vez.
 
+## Trabajo Bloqueante y Virtual Threads
+
+El kernel tambien puede registrar un `BlockingTaskRunner` para mover trabajo
+bloqueante fuera del hilo de UI o del hilo llamador:
+
+```kotlin
+val runner = app.blockingTaskRunner()
+
+runner.submit {
+    database.withConnection("main") { connection ->
+        // JDBC bloqueante
+    }
+}
+```
+
+La idea no es paralelizar migraciones internamente, sino permitir que procesos
+como `migrator.run()` se ejecuten en background sin congelar una app desktop.
+
 Orden actual del kernel para esta capa:
 
 - `kernel.database.pdo.connections`: manager, resolver y configuracion materializada;
