@@ -200,6 +200,31 @@ Con esa migracion:
 - una migracion sin `connectionName` usa la conexion del comando si existe;
 - si tampoco hay `--database`, usa `database.default`.
 
+### Pruebas Live De Base De Datos
+
+El `kernel` incluye pruebas live opcionales para validar conexiones y
+migraciones reales contra PostgreSQL y MariaDB.
+
+El framework no fija credenciales hardcodeadas para esas pruebas. Cada
+programador debe configurarlas mediante variables de entorno antes de ejecutar:
+
+```text
+KERNEL_TEST_PG_HOST
+KERNEL_TEST_PG_PORT
+KERNEL_TEST_PG_DATABASE
+KERNEL_TEST_PG_USERNAME
+KERNEL_TEST_PG_PASSWORD
+
+KERNEL_TEST_MARIADB_HOST
+KERNEL_TEST_MARIADB_PORT
+KERNEL_TEST_MARIADB_DATABASE
+KERNEL_TEST_MARIADB_USERNAME
+KERNEL_TEST_MARIADB_PASSWORD
+```
+
+Si faltan esas variables, las pruebas live se marcan como omitidas con un
+mensaje claro indicando qué credenciales faltan.
+
 ## Estructura Actual
 
 Hoy el proyecto contiene principalmente:

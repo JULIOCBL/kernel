@@ -206,6 +206,11 @@ class LiveDatabaseIntegrationTest {
 
     private fun assumeDatabaseAvailable(target: LiveDatabaseTarget) {
         assumeTrue(
+            target.missingVariables.isEmpty(),
+            "Faltan credenciales para `${target.connectionName}`. " +
+                "Define: ${target.missingVariables.joinToString(", ")}"
+        )
+        assumeTrue(
             canConnect(target),
             "No se pudo abrir la base ${target.connectionName} en ${target.host}:${target.port}/${target.database}."
         )
@@ -225,28 +230,56 @@ class LiveDatabaseIntegrationTest {
     }
 
     private fun postgresTarget(): LiveDatabaseTarget {
-        return LiveDatabaseTarget(
+        return requiredTarget(
+            envPrefix = "KERNEL_TEST_PG",
             connectionName = "pgsql_live",
             driver = PostgreSqlDriver,
-            host = System.getenv("KERNEL_TEST_PG_HOST") ?: "localhost",
-            port = (System.getenv("KERNEL_TEST_PG_PORT") ?: "5432").toInt(),
-            database = System.getenv("KERNEL_TEST_PG_DATABASE") ?: "test",
-            username = System.getenv("KERNEL_TEST_PG_USERNAME") ?: "root",
-            password = System.getenv("KERNEL_TEST_PG_PASSWORD") ?: "root",
             productKeywords = setOf("postgresql")
         )
     }
 
     private fun mariaDbTarget(): LiveDatabaseTarget {
-        return LiveDatabaseTarget(
+        return requiredTarget(
+            envPrefix = "KERNEL_TEST_MARIADB",
             connectionName = "mariadb_live",
             driver = MariaDbDriver,
-            host = System.getenv("KERNEL_TEST_MARIADB_HOST") ?: "localhost",
-            port = (System.getenv("KERNEL_TEST_MARIADB_PORT") ?: "3307").toInt(),
-            database = System.getenv("KERNEL_TEST_MARIADB_DATABASE") ?: "test",
-            username = System.getenv("KERNEL_TEST_MARIADB_USERNAME") ?: "root",
-            password = System.getenv("KERNEL_TEST_MARIADB_PASSWORD") ?: "root",
             productKeywords = setOf("mariadb", "mysql")
+        )
+    }
+
+    private fun requiredTarget(
+        envPrefix: String,
+        connectionName: String,
+        driver: DatabaseDriver,
+        productKeywords: Set<String>
+    ): LiveDatabaseTarget {
+        val hostKey = "${envPrefix}_HOST"
+        val portKey = "${envPrefix}_PORT"
+        val databaseKey = "${envPrefix}_DATABASE"
+        val usernameKey = "${envPrefix}_USERNAME"
+        val passwordKey = "${envPrefix}_PASSWORD"
+
+        val rawValues = mapOf(
+            hostKey to System.getenv(hostKey),
+            portKey to System.getenv(portKey),
+            databaseKey to System.getenv(databaseKey),
+            usernameKey to System.getenv(usernameKey),
+            passwordKey to System.getenv(passwordKey)
+        )
+        val missingVariables = rawValues
+            .filterValues { value -> value.isNullOrBlank() }
+            .keys
+
+        return LiveDatabaseTarget(
+            connectionName = connectionName,
+            driver = driver,
+            host = rawValues[hostKey].orEmpty(),
+            port = rawValues[portKey]?.toIntOrNull() ?: 0,
+            database = rawValues[databaseKey].orEmpty(),
+            username = rawValues[usernameKey].orEmpty(),
+            password = rawValues[passwordKey].orEmpty(),
+            productKeywords = productKeywords,
+            missingVariables = missingVariables
         )
     }
 }
@@ -259,7 +292,8 @@ private data class LiveDatabaseTarget(
     val database: String,
     val username: String,
     val password: String,
-    val productKeywords: Set<String>
+    val productKeywords: Set<String>,
+    val missingVariables: Set<String> = emptySet()
 ) {
     val jdbcUrl: String
         get() = driver.buildJdbcUrl(host, port.toString(), database)
