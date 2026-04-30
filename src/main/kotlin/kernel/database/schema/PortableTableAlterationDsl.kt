@@ -150,7 +150,8 @@ internal class PortableTableAlterationDsl(
             DropIndexStatement(
                 name = SqlIdentifier.requireValid(name, "Nombre de indice"),
                 ifExists = ifExists,
-                concurrently = concurrently
+                concurrently = concurrently,
+                table = table
             )
         )
     }

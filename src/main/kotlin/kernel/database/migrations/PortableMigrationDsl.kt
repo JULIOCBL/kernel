@@ -216,12 +216,18 @@ internal class PortableMigrationDsl(
         )
     }
 
-    fun dropIndex(name: String, ifExists: Boolean, concurrently: Boolean) {
+    fun dropIndex(
+        name: String,
+        ifExists: Boolean,
+        concurrently: Boolean,
+        table: String?
+    ) {
         collector().add(
             DropIndexStatement(
                 name = SqlIdentifier.requireValid(name, "Nombre de indice"),
                 ifExists = ifExists,
-                concurrently = concurrently
+                concurrently = concurrently,
+                table = table?.let(MigrationDslSupport::tableName)
             )
         )
     }

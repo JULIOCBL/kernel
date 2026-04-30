@@ -257,9 +257,10 @@ abstract class Migration {
     protected fun dropIndex(
         name: String,
         ifExists: Boolean = true,
-        concurrently: Boolean = false
+        concurrently: Boolean = false,
+        table: String? = null
     ) {
-        portableDsl.dropIndex(name, ifExists, concurrently)
+        portableDsl.dropIndex(name, ifExists, concurrently, table)
     }
 
     protected fun createView(

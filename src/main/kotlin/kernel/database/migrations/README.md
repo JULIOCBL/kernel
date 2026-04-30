@@ -996,6 +996,14 @@ createIndex(
 dropIndex("orders_status_index", concurrently = true)
 ```
 
+Nota multi-db:
+
+- dentro de `table("...")`, `dropIndex(...)` ya conoce la tabla y funciona bien
+  en PostgreSQL y MariaDB;
+- si llamas `dropIndex(...)` de forma directa y la migracion puede correr sobre
+  MariaDB, indica tambien `table = "orders"` para que el kernel pueda renderizar
+  `DROP INDEX ... ON orders`.
+
 ## ENUM Nativo De PostgreSQL
 
 PostgreSQL si maneja enums nativos. El flujo recomendado es crear primero el

@@ -133,6 +133,47 @@ class MigrationStubFactoryTest {
     }
 
     @Test
+    fun `generates drop table stub in a custom package`() {
+        val stub = factory.create(
+            MigrationStubRequest(
+                template = MigrationStubTemplate.DROP_TABLE,
+                tableName = "Sessions",
+                packageName = "playground.database.migrations"
+            )
+        )
+
+        assertEquals("M2026_04_23_123456_drop_sessions_table", stub.className)
+        assertEquals(
+            """
+            package playground.database.migrations
+
+            /**
+             * Migracion que elimina la tabla `sessions`.
+             */
+            class M2026_04_23_123456_drop_sessions_table : Migration() {
+                /**
+                 * Elimina la tabla `sessions` si existe.
+                 */
+                override fun up() {
+                    dropIfExists("sessions")
+                }
+
+                /**
+                 * Restaura una estructura basica de la tabla `sessions`.
+                 */
+                override fun down() {
+                    create("sessions") {
+                        id().primaryKey()
+                        timestampsTz()
+                    }
+                }
+            }
+            """.trimIndent(),
+            stub.source
+        )
+    }
+
+    @Test
     fun `requires explicit name for blank stub`() {
         assertFailsWith<IllegalArgumentException> {
             factory.create(

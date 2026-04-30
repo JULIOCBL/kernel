@@ -6,7 +6,8 @@ package kernel.database.statements
 internal data class DropIndexStatement(
     private val name: String,
     private val ifExists: Boolean,
-    private val concurrently: Boolean
+    private val concurrently: Boolean,
+    private val table: String? = null
 ) : SqlStatement {
     /**
      * Convierte la operacion a SQL PostgreSQL.
@@ -23,6 +24,8 @@ internal data class DropIndexStatement(
             ""
         }
 
-        return "DROP INDEX$concurrentlyClause$existenceClause $name;"
+        val tableHint = table?.let { relation -> " /* table: $relation */" }.orEmpty()
+
+        return "DROP INDEX$concurrentlyClause$existenceClause $name$tableHint;"
     }
 }

@@ -54,7 +54,7 @@ class MigrationIndexFeatureTest {
         )
         assertGeneratedStatements(
             listOf(
-                "DROP INDEX IF EXISTS orders_metadata_gin;",
+                "DROP INDEX IF EXISTS orders_metadata_gin /* table: orders */;",
                 "DROP INDEX CONCURRENTLY IF EXISTS orders_status_index;"
             ),
             generator.generateDownStatements(migration)

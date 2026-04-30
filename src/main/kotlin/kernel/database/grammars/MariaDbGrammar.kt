@@ -32,6 +32,10 @@ class MariaDbGrammar : SchemaGrammar {
             "No se puede traducir una sentencia SQL vacia a MariaDB."
         }
 
+        translateDropIndex(normalized)?.let { translated ->
+            return translated
+        }
+
         ensureNoUnsupportedStatement(normalized)
 
         val translated = TOKEN_REPLACEMENTS.fold(normalized) { current, replacement ->
@@ -41,6 +45,24 @@ class MariaDbGrammar : SchemaGrammar {
         ensureNoUnsupportedFragments(translated)
 
         return translated
+    }
+
+    private fun translateDropIndex(sql: String): String? {
+        val match = DROP_INDEX_REGEX.matchEntire(sql) ?: return null
+        val concurrently = match.groups["concurrently"]?.value
+        val ifExists = match.groups["ifExists"]?.value
+        val name = match.groups["name"]?.value.orEmpty()
+        val table = match.groups["table"]?.value?.trim()
+
+        require(concurrently == null) {
+            "MariaDB no soporta `DROP INDEX CONCURRENTLY`: `$sql`."
+        }
+        require(!table.isNullOrEmpty()) {
+            "MariaDB requiere el nombre de la tabla para `DROP INDEX`: `$sql`."
+        }
+
+        val existenceClause = if (ifExists != null) " IF EXISTS" else ""
+        return "DROP INDEX$existenceClause $name ON $table;"
     }
 
     private fun ensureNoUnsupportedStatement(sql: String) {
@@ -75,6 +97,12 @@ class MariaDbGrammar : SchemaGrammar {
     }
 
     companion object {
+        private val DROP_INDEX_REGEX = Regex(
+            pattern =
+                """DROP INDEX(?<concurrently>\s+CONCURRENTLY)?(?<ifExists>\s+IF EXISTS)?\s+(?<name>[^\s;]+)(?:\s*/\*\s*table:\s*(?<table>[^*]+?)\s*\*/)?;""",
+            options = setOf(RegexOption.IGNORE_CASE)
+        )
+
         private val TOKEN_REPLACEMENTS = listOf(
             RegexReplacement("""\bgen_random_uuid\(\)""") { "UUID()" },
             RegexReplacement("""::jsonb\b""") { "" },

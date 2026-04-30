@@ -101,6 +101,47 @@ class MariaDbGrammarTest {
         assertTrue(sql.contains("channels SET('web', 'mobile')"), sql)
     }
 
+    @Test
+    fun `translates drop index statements to mariadb table syntax`() {
+        val migration = object : Migration() {
+            override fun up() = Unit
+
+            override fun down() {
+                table("orders") {
+                    dropIndex("orders_customer_id_index")
+                }
+                dropIndex("orders_status_created_index", table = "orders")
+            }
+        }
+
+        val statements = generator.generateDownStatements(migration, MariaDbDriver)
+
+        assertEquals(
+            listOf(
+                "DROP INDEX IF EXISTS orders_customer_id_index ON orders;",
+                "DROP INDEX IF EXISTS orders_status_created_index ON orders;"
+            ),
+            statements
+        )
+    }
+
+    @Test
+    fun `rejects top level mariadb drop index without table hint`() {
+        val migration = object : Migration() {
+            override fun up() = Unit
+
+            override fun down() {
+                dropIndex("orders_status_index")
+            }
+        }
+
+        val error = assertFailsWith<IllegalArgumentException> {
+            generator.generateDown(migration, MariaDbDriver)
+        }
+
+        assertTrue(error.message.orEmpty().contains("requiere el nombre de la tabla"))
+    }
+
     private fun playgroundRuntimeProbeMigration(): Migration {
         return object : Migration() {
             override fun up() {

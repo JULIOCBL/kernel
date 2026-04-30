@@ -11,9 +11,79 @@ import java.sql.Statement
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class MigratorTest {
+    @Test
+    fun `run falls back to resolver default connection when migration and command omit database`() {
+        val repository = InMemoryMigrationRepository()
+        val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::DefaultConnectionMigration)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val executed = migrator.run()
+
+        assertEquals(listOf("DefaultConnectionMigration"), executed)
+        assertEquals(listOf("DefaultConnectionMigration"), repository.getRan("main"))
+        assertTrue(repository.getRan("logs").isEmpty())
+        assertTrue(
+            resolver.connectionHandle("main").executedStatements.any { statement ->
+                statement.contains("default_connection_entries")
+            }
+        )
+    }
+
+    @Test
+    fun `run uses command database when migration does not define an explicit connection`() {
+        val repository = InMemoryMigrationRepository()
+        val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::DefaultConnectionMigration)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val executed = migrator.run(MigrationRunOptions(database = "analytics"))
+
+        assertEquals(listOf("DefaultConnectionMigration"), executed)
+        assertEquals(listOf("DefaultConnectionMigration"), repository.getRan("analytics"))
+        assertTrue(repository.getRan("main").isEmpty())
+        assertTrue(
+            resolver.connectionHandle("analytics").executedStatements.any { statement ->
+                statement.contains("default_connection_entries")
+            }
+        )
+    }
+
+    @Test
+    fun `run ignores blank migration connection names and falls back to command database`() {
+        val repository = InMemoryMigrationRepository()
+        val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::BlankConnectionMigration)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val executed = migrator.run(MigrationRunOptions(database = "reports"))
+
+        assertEquals(listOf("BlankConnectionMigration"), executed)
+        assertEquals(listOf("BlankConnectionMigration"), repository.getRan("reports"))
+        assertTrue(repository.getRan("main").isEmpty())
+        assertTrue(
+            resolver.connectionHandle("reports").executedStatements.any { statement ->
+                statement.contains("blank_connection_entries")
+            }
+        )
+    }
+
     @Test
     fun `run executes pending migrations on requested database and logs them`() {
         val repository = InMemoryMigrationRepository()
@@ -76,6 +146,44 @@ class MigratorTest {
     }
 
     @Test
+    fun `run keeps repositories and batch numbers isolated per effective connection`() {
+        val repository = InMemoryMigrationRepository().apply {
+            setSource("main")
+            createRepository()
+            log("AlreadyRanOnMain", 3)
+            setSource("logs")
+            createRepository()
+            log("AlreadyRanOnLogs", 7)
+        }
+        val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::DefaultConnectionMigration),
+                migrationFactory(::LogsOnlyMigration),
+                migrationFactory(::MariaDbOnlyMigration)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val executed = migrator.run()
+
+        assertEquals(
+            listOf(
+                "DefaultConnectionMigration",
+                "LogsOnlyMigration",
+                "MariaDbOnlyMigration"
+            ),
+            executed
+        )
+        assertEquals(4, repository.getMigrationBatches("main")["DefaultConnectionMigration"])
+        assertEquals(8, repository.getMigrationBatches("logs")["LogsOnlyMigration"])
+        assertEquals(1, repository.getMigrationBatches("mariadb")["MariaDbOnlyMigration"])
+        assertTrue(repository.repositoryExistsOn("main"))
+        assertTrue(repository.repositoryExistsOn("logs"))
+        assertTrue(repository.repositoryExistsOn("mariadb"))
+    }
+
+    @Test
     fun `run validates only option against registry`() {
         val repository = InMemoryMigrationRepository()
         val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
@@ -120,6 +228,78 @@ class MigratorTest {
         val executed = migrator.run()
 
         assertTrue(executed.isEmpty())
+    }
+
+    @Test
+    fun `run uses transactions when the driver supports them and the migration keeps them enabled`() {
+        val repository = InMemoryMigrationRepository()
+        val resolver = RecordingConnectionResolver(
+            defaultConnectionName = "main",
+            driver = PostgreSqlDriver
+        )
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::DefaultConnectionMigration)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val executed = migrator.run()
+
+        assertEquals(listOf("DefaultConnectionMigration"), executed)
+        val handle = resolver.connectionHandle("main")
+        assertEquals(1, handle.commitCount)
+        assertEquals(0, handle.rollbackCount)
+        assertTrue(handle.autoCommit)
+    }
+
+    @Test
+    fun `run skips transactions when the migration disables them`() {
+        val repository = InMemoryMigrationRepository()
+        val resolver = RecordingConnectionResolver(
+            defaultConnectionName = "main",
+            driver = PostgreSqlDriver
+        )
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::WithoutTransactionMigration)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val executed = migrator.run()
+
+        assertEquals(listOf("WithoutTransactionMigration"), executed)
+        val handle = resolver.connectionHandle("main")
+        assertEquals(0, handle.commitCount)
+        assertEquals(0, handle.rollbackCount)
+        assertTrue(handle.autoCommit)
+    }
+
+    @Test
+    fun `run rolls back the transaction and avoids logging when a migration execution fails`() {
+        val repository = InMemoryMigrationRepository()
+        val resolver = RecordingConnectionResolver(
+            defaultConnectionName = "main",
+            driver = PostgreSqlDriver,
+            failOnStatementContainingByConnection = mapOf("main" to "FAIL MIGRATION")
+        )
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::FailingTransactionalMigration)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        assertFailsWith<IllegalStateException> {
+            migrator.run()
+        }
+
+        val handle = resolver.connectionHandle("main")
+        assertEquals(0, handle.commitCount)
+        assertEquals(1, handle.rollbackCount)
+        assertTrue(repository.repositoryExistsOn("main"))
+        assertTrue(repository.getRan("main").isEmpty())
     }
 
     @Test
@@ -216,6 +396,43 @@ class MigratorTest {
         assertTrue(resolver.connectionHandle("logs").executedStatements.any { it.contains("log_entries") })
         assertTrue(repository.getRan("logs").isEmpty())
         assertEquals(listOf("M2026_04_23_214243_create_terminal_users_table"), repository.getRan("main"))
+    }
+
+    @Test
+    fun `rollback with steps walks the latest migrations across connections`() {
+        val repository = InMemoryMigrationRepository().apply {
+            setSource("main")
+            createRepository()
+            log("DefaultConnectionMigration", 3)
+            setSource("logs")
+            createRepository()
+            log("LogsOnlyMigration", 4)
+            setSource("mariadb")
+            createRepository()
+            log("MariaDbOnlyMigration", 2)
+        }
+        val resolver = RecordingConnectionResolver(defaultConnectionName = "main")
+        val registry = MigrationRegistry(
+            listOf(
+                migrationFactory(::DefaultConnectionMigration),
+                migrationFactory(::LogsOnlyMigration),
+                migrationFactory(::MariaDbOnlyMigration)
+            )
+        )
+        val migrator = Migrator(repository, resolver, registry)
+
+        val rolledBack = migrator.rollback(MigrationRollbackOptions(steps = 2))
+
+        assertEquals(
+            listOf(
+                "LogsOnlyMigration",
+                "DefaultConnectionMigration"
+            ),
+            rolledBack
+        )
+        assertTrue(repository.getRan("logs").isEmpty())
+        assertTrue(repository.getRan("main").isEmpty())
+        assertEquals(listOf("MariaDbOnlyMigration"), repository.getRan("mariadb"))
     }
 
     @Test
@@ -393,6 +610,16 @@ class MigratorTest {
             return repositories[sourceKey(name)] ?: false
         }
 
+        fun getMigrationBatches(name: String?): Map<String, Int> {
+            val previous = sourceName
+            return try {
+                sourceName = name
+                getMigrationBatches()
+            } finally {
+                sourceName = previous
+            }
+        }
+
         private fun currentRecords(): MutableMap<Int, MutableList<MigrationRecord>> {
             return recordsBySource.getOrPut(sourceKey()) { mutableMapOf() }
         }
@@ -404,7 +631,8 @@ class MigratorTest {
 
     private class RecordingConnectionResolver(
         private val defaultConnectionName: String,
-        private val driver: DatabaseDriver = PostgreSqlDriver
+        private val driver: DatabaseDriver = PostgreSqlDriver,
+        private val failOnStatementContainingByConnection: Map<String, String> = emptyMap()
     ) : ConnectionResolver {
         private val config = DatabaseConnectionConfig(
             name = "recording",
@@ -415,7 +643,12 @@ class MigratorTest {
 
         override fun connection(name: String?): Connection {
             val target = name ?: defaultConnectionName
-            val handle = handles.getOrPut(target) { RecordingConnectionHandle(target) }
+            val handle = handles.getOrPut(target) {
+                RecordingConnectionHandle(
+                    name = target,
+                    failOnStatementContaining = failOnStatementContainingByConnection[target]
+                )
+            }
             return handle.open()
         }
 
@@ -431,7 +664,8 @@ class MigratorTest {
     }
 
     private class RecordingConnectionHandle(
-        val name: String
+        val name: String,
+        private val failOnStatementContaining: String? = null
     ) {
         val executedStatements = mutableListOf<String>()
         var autoCommit: Boolean = true
@@ -446,7 +680,11 @@ class MigratorTest {
             ) { _, method, args ->
                 when (method.name) {
                     "execute" -> {
-                        executedStatements += args?.firstOrNull() as String
+                        val sql = args?.firstOrNull() as String
+                        executedStatements += sql
+                        if (failOnStatementContaining != null && failOnStatementContaining in sql) {
+                            throw IllegalStateException("Fallo forzado para `$name`: $sql")
+                        }
                         true
                     }
 
@@ -496,17 +734,6 @@ class MigratorTest {
         }
     }
 
-    private object RecordingDriver : DatabaseDriver {
-        override val id: String = "recording"
-        override val defaultJdbcDriverClass: String = "recording.Driver"
-        override val supportsSchemaMigrations: Boolean = true
-        override val supportsSchemaTransactions: Boolean = true
-
-        override fun buildJdbcUrl(host: String, port: String, database: String): String {
-            return "jdbc:recording://$host:$port/$database"
-        }
-    }
-
     private class LogsOnlyMigration : Migration() {
         override val connectionName: String = "logs"
 
@@ -519,6 +746,74 @@ class MigratorTest {
 
         override fun down() {
             dropIfExists("log_entries")
+        }
+    }
+
+    private class DefaultConnectionMigration : Migration() {
+        override fun up() {
+            create("default_connection_entries") {
+                id()
+                varchar("message", 255)
+            }
+        }
+
+        override fun down() {
+            dropIfExists("default_connection_entries")
+        }
+    }
+
+    private class BlankConnectionMigration : Migration() {
+        override val connectionName: String = "   "
+
+        override fun up() {
+            create("blank_connection_entries") {
+                id()
+                varchar("message", 255)
+            }
+        }
+
+        override fun down() {
+            dropIfExists("blank_connection_entries")
+        }
+    }
+
+    private class MariaDbOnlyMigration : Migration() {
+        override val connectionName: String = "mariadb"
+
+        override fun up() {
+            create("mariadb_entries") {
+                id()
+                varchar("message", 255)
+            }
+        }
+
+        override fun down() {
+            dropIfExists("mariadb_entries")
+        }
+    }
+
+    private class WithoutTransactionMigration : Migration() {
+        override val withinTransaction: Boolean = false
+
+        override fun up() {
+            create("non_transactional_entries") {
+                id()
+                varchar("message", 255)
+            }
+        }
+
+        override fun down() {
+            dropIfExists("non_transactional_entries")
+        }
+    }
+
+    private class FailingTransactionalMigration : Migration() {
+        override fun up() {
+            statement("FAIL MIGRATION")
+        }
+
+        override fun down() {
+            statement("ROLLBACK FAIL MIGRATION")
         }
     }
 

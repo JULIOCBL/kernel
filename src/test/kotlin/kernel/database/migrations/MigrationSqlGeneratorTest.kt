@@ -328,9 +328,9 @@ class MigrationSqlGeneratorTest {
         )
         assertEquals(
             """
-            DROP INDEX CONCURRENTLY IF EXISTS orders_customer_id_created_at_index;
+            DROP INDEX CONCURRENTLY IF EXISTS orders_customer_id_created_at_index /* table: orders */;
 
-            DROP INDEX IF EXISTS users_email_unique;
+            DROP INDEX IF EXISTS users_email_unique /* table: users */;
             """.trimIndent(),
             generator.generateDown(migration)
         )
