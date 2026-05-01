@@ -1,7 +1,6 @@
 package kernel.providers
 
 import kernel.foundation.Application
-import kernel.foundation.SingleInstanceHandler
 import kernel.routing.ApiRouter
 import kernel.routing.ControllerRegistry
 import kernel.routing.DefaultDesktopViewDispatcher
@@ -60,45 +59,9 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
     override fun boot() {
         val desktopRouter = app.config.get("services.routes.desktop.router") as DesktopRouter
         val apiRouter = app.config.get("services.routes.api.router") as ApiRouter
-        val desktopNavigator = desktopNavigator()
 
         RouteModuleLoader.loadDesktopRoutes(app, desktopRouter)
         RouteModuleLoader.loadApiRoutes(app, apiRouter)
-
-        val handler = SingleInstanceHandler(
-            app.config.string("routing.desktop.singleInstanceKey", "kernel-playground")
-        )
-
-        val isPrimary = handler.isPrimaryInstance { newUrl ->
-            desktopNavigator.navigate(newUrl)
-        }
-
-        if (isPrimary) {
-            findDeepLinkArgument()?.let { deepLink ->
-                desktopNavigator.navigateInitial(deepLink)
-            } ?: desktopNavigator.navigateInitial(defaultDesktopUri())
-        } else {
-            findDeepLinkArgument()?.let(handler::sendUrlToPrimary)
-        }
-    }
-
-    private fun findDeepLinkArgument(): String? {
-        val desktopLinks = desktopLinks()
-        val args = System.getProperty("sun.java.command")?.split(" ") ?: emptyList()
-
-        return args.firstOrNull { candidate ->
-            desktopLinks.matches(candidate)
-        }
-    }
-
-    private fun desktopNavigator(): DesktopNavigator {
-        return app.config.get("services.routes.desktop.navigator") as? DesktopNavigator
-            ?: error("DesktopNavigator no esta registrado en services.routes.desktop.navigator.")
-    }
-
-    private fun desktopLinks(): LinkGenerator {
-        return app.config.get("services.routes.desktop.links") as? LinkGenerator
-            ?: error("LinkGenerator no esta registrado en services.routes.desktop.links.")
     }
 
     private fun desktopScheme(): String {
@@ -129,21 +92,5 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
         }
 
         return default
-    }
-
-    private fun defaultDesktopUri(): String {
-        val path = configuredValue(
-            primaryKey = "routing.desktop.home",
-            legacyKey = "app.routing.desktop.home",
-            default = "/"
-        )
-
-        val normalizedPath = when {
-            path.isBlank() -> "/"
-            path.startsWith("/") -> path
-            else -> "/$path"
-        }
-
-        return desktopLinks().desktop(normalizedPath)
     }
 }
