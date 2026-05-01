@@ -18,6 +18,50 @@ Convertir `kernel` en una base estandar para construir apps Kotlin con:
 - vistas;
 - soporte de base de datos y migraciones.
 
+## Seguridad Nativa
+
+El kernel ya incluye una primera capa de integración con **Kernel Secure
+Runtime (KSR)**, una librería nativa cargada vía JNI desde el paquete
+`kernel.security`.
+
+Componentes actuales:
+
+- `SecureRuntime`: puente JNI hacia la librería `ksrjcbl`;
+- `NativeLibraryLoader`: detecta el sistema operativo y carga la librería desde
+  `src/main/resources/native/`;
+- `KeyAssembler`: punto de entrada seguro para inyectar y consumir el fragmento
+  `B` validando tamaño fijo de 32 bytes;
+- `SecureRuntimeDiagnostics`: diagnóstico seguro sin exponer secretos.
+
+Artefactos nativos esperados:
+
+- `native/libksrjcbl.dylib` en macOS;
+- `native/libksrjcbl.so` en Linux;
+- `native/ksrjcbl.dll` en Windows.
+
+### Comando Seguro De Diagnóstico
+
+El kernel expone un único comando CLI público para esta capa:
+
+```bash
+./gradlew run --args="secure:status"
+```
+
+Ese comando solo reporta:
+
+- sistema operativo detectado;
+- recurso nativo esperado;
+- si el binario existe en recursos;
+- si la librería JNI pudo cargarse;
+- tamaño esperado del fragmento `B`.
+
+Importante:
+
+- `secure:status` no inyecta fragmentos;
+- `secure:status` no consume fragmentos;
+- el kernel no expone comandos manuales para manipular material sensible desde
+  terminal.
+
 ## Lo Que Ya Existe
 
 - parser y ejecucion basica de comandos;
@@ -29,7 +73,7 @@ Convertir `kernel` en una base estandar para construir apps Kotlin con:
 - introspeccion segura de objetos para `dump()` y `dd()` con limites de profundidad y truncado;
 - DSL y generacion de migraciones;
 - `Migrator`, `MigrationRegistry` y `MigrationRepository` para ejecutar y consultar migraciones registradas explicitamente;
-- comandos base `migrate`, `migrate:rollback` y `migrate:status`.
+- comandos base `migrate`, `migrate:rollback`, `migrate:status` y `secure:status`.
 
 Puedes ajustar esos limites en `kernel.debug.DebugConfig`.
 Por defecto vienen en `null`, asi que `dump()` y `dd()` no recortan nada.

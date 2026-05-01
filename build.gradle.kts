@@ -27,7 +27,7 @@ sourceSets {
     named("main") {
         resources {
             srcDir("src/main/kotlin")
-            include("**/*.stub")
+            include("**/*.stub", "native/**")
         }
     }
 }

@@ -1,6 +1,7 @@
 package kernel.command
 
 import kernel.command.commands.MakeMigrationCommand
+import kernel.command.commands.SecureStatusCommand
 import kernel.debug.DumpAndDieSignal
 import java.nio.file.Paths
 import kotlin.system.exitProcess
@@ -30,7 +31,8 @@ object KernelCli {
         registryBuilder: () -> CommandRegistry = {
             CommandRegistry(
                 listOf(
-                    MakeMigrationCommand()
+                    MakeMigrationCommand(),
+                    SecureStatusCommand()
                 )
             )
         }
