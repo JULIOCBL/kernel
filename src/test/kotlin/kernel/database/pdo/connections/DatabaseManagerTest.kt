@@ -11,6 +11,9 @@ import java.sql.Driver
 import java.sql.DriverManager
 import java.sql.DriverPropertyInfo
 import java.util.Properties
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.createTempDirectory
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -145,6 +148,154 @@ class DatabaseManagerTest {
         assertEquals(true, first.connectionConfig().pool.enabled)
         assertEquals(2, first.connectionConfig().pool.minimumIdle)
         assertEquals(12, first.connectionConfig().pool.maximumPoolSize)
+    }
+
+    @Test
+    fun `manager singleton is reused under concurrent application lookups`() {
+        val application = buildApplication()
+        application.loadConfig(
+            "database",
+            mapOf(
+                "default" to "main",
+                "connections" to mapOf(
+                    "main" to mapOf(
+                        "driver" to "pgsql",
+                        "url" to "jdbc:kernel-test:main"
+                    )
+                )
+            )
+        )
+
+        val executor = Executors.newFixedThreadPool(6)
+        val startGate = CountDownLatch(1)
+
+        try {
+            val futures = (1..6).map {
+                executor.submit<DatabaseManager> {
+                    startGate.await(5, TimeUnit.SECONDS)
+                    DatabaseManager.from(application)
+                }
+            }
+
+            startGate.countDown()
+            val instances = futures.map { it.get(5, TimeUnit.SECONDS) }.toSet()
+
+            assertEquals(1, instances.size)
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `pooled connections are created lazily on first use`() {
+        val application = buildApplication()
+        application.loadConfig(
+            "database",
+            mapOf(
+                "default" to "main",
+                "connections" to mapOf(
+                    "main" to mapOf(
+                        "driver" to "pgsql",
+                        "jdbcDriver" to FakeDriver::class.java.name,
+                        "url" to "jdbc:kernel-test:main",
+                        "pool" to mapOf(
+                            "enabled" to true,
+                            "minimumIdle" to 0,
+                            "maximumPoolSize" to 4
+                        )
+                    )
+                )
+            )
+        )
+
+        val manager = DatabaseManager.from(application)
+
+        assertTrue(manager.activePooledConnectionNames().isEmpty())
+        assertEquals(0, fakeDriver.connectCount)
+
+        manager.withConnection {
+            assertTrue(it.isWrapperFor(Connection::class.java))
+        }
+
+        assertEquals(setOf("main"), manager.activePooledConnectionNames())
+        assertTrue(fakeDriver.connectCount > 0)
+    }
+
+    @Test
+    fun `close only shuts down active pools and allows recreating them`() {
+        val application = buildApplication()
+        application.loadConfig(
+            "database",
+            mapOf(
+                "default" to "main",
+                "connections" to mapOf(
+                    "main" to mapOf(
+                        "driver" to "pgsql",
+                        "jdbcDriver" to FakeDriver::class.java.name,
+                        "url" to "jdbc:kernel-test:main",
+                        "pool" to mapOf(
+                            "enabled" to true,
+                            "minimumIdle" to 0,
+                            "maximumPoolSize" to 2
+                        )
+                    )
+                )
+            )
+        )
+
+        val manager = DatabaseManager.from(application)
+
+        manager.withConnection { }
+        assertEquals(setOf("main"), manager.activePooledConnectionNames())
+
+        manager.close()
+        assertTrue(manager.activePooledConnectionNames().isEmpty())
+
+        manager.withConnection { }
+        assertEquals(setOf("main"), manager.activePooledConnectionNames())
+    }
+
+    @Test
+    fun `concurrent access materializes a single pool per connection`() {
+        val application = buildApplication()
+        application.loadConfig(
+            "database",
+            mapOf(
+                "default" to "main",
+                "connections" to mapOf(
+                    "main" to mapOf(
+                        "driver" to "pgsql",
+                        "jdbcDriver" to FakeDriver::class.java.name,
+                        "url" to "jdbc:kernel-test:main",
+                        "pool" to mapOf(
+                            "enabled" to true,
+                            "minimumIdle" to 0,
+                            "maximumPoolSize" to 4
+                        )
+                    )
+                )
+            )
+        )
+
+        val manager = DatabaseManager.from(application)
+        val executor = Executors.newFixedThreadPool(6)
+        val startGate = CountDownLatch(1)
+
+        try {
+            val futures = (1..6).map {
+                executor.submit<Unit> {
+                    startGate.await(5, TimeUnit.SECONDS)
+                    manager.withConnection { }
+                }
+            }
+
+            startGate.countDown()
+            futures.forEach { it.get(5, TimeUnit.SECONDS) }
+        } finally {
+            executor.shutdownNow()
+        }
+
+        assertEquals(setOf("main"), manager.activePooledConnectionNames())
     }
 
     @Test
@@ -306,11 +457,13 @@ internal class FakeDriver : Driver {
     var lastUrl: String? = null
     var lastProperties: Properties? = null
     var lastConnectionClosed: Boolean = false
+    var connectCount: Int = 0
 
     fun reset() {
         lastUrl = null
         lastProperties = null
         lastConnectionClosed = false
+        connectCount = 0
     }
 
     override fun connect(url: String?, info: Properties?): Connection? {
@@ -318,6 +471,7 @@ internal class FakeDriver : Driver {
             return null
         }
 
+        connectCount += 1
         lastUrl = url
         lastProperties = Properties().also { copy ->
             info?.forEach { key, value ->
