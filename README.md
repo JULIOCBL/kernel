@@ -321,7 +321,6 @@ src/test/kotlin/kernel
 Para que siga siendo reusable:
 
 - no debe contener clases de negocio de una app concreta;
-- no debe depender de `kernel-playground` ni de `venda-simple-pos-core`;
 - toda convencion de rutas o carpetas debe ser configurable, pero con defaults estables;
 - los comandos del framework deben poder convivir con comandos de la app;
 - la generacion de archivos debe permitir cambiar package y ruta de salida;
