@@ -63,6 +63,31 @@ class MigrateCommandTest {
         assertEquals("[INFO] No hay migraciones pendientes.", result.message.withoutAnsi())
     }
 
+    @Test
+    fun `returns the chained error message when migrate fails`() {
+        val command = MigrateCommand {
+            throw IllegalStateException(
+                "SQL error while executing migration statement: CREATE TABLE users (id UUID NOT NULL)",
+                IllegalArgumentException("relation \"users\" already exists")
+            )
+        }
+
+        val result = command.execute(
+            CommandInput(
+                name = "migrate",
+                arguments = emptyList(),
+                options = emptyMap(),
+                workingDirectory = createTempDirectory("kernel-migrate-command-failure-test")
+            )
+        )
+
+        assertEquals(1, result.exitCode)
+        val plain = result.message.withoutAnsi()
+        assertTrue(plain.contains("[ERROR] Fallo al ejecutar migraciones:"))
+        assertTrue(plain.contains("SQL error while executing migration statement: CREATE TABLE users (id UUID NOT NULL)"))
+        assertTrue(plain.contains("relation \"users\" already exists"))
+    }
+
     private fun String.withoutAnsi(): String {
         return replace(Regex("\\u001B\\[[;\\d]*m"), "")
     }

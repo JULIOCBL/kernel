@@ -14,23 +14,32 @@ class MigrateRollbackCommand(
     override val name: String = "migrate:rollback"
 
     override fun execute(input: CommandInput): CommandResult {
-        val options = MigrationRollbackOptions(
-            database = input.option("database")?.trim()?.takeIf(String::isNotEmpty),
-            steps = parseStep(input.option("step"))
-        )
+        return try {
+            val options = MigrationRollbackOptions(
+                database = input.option("database")?.trim()?.takeIf(String::isNotEmpty),
+                steps = parseStep(input.option("step"))
+            )
 
-        val rolledBack = runner(options)
-        if (rolledBack.isEmpty()) {
-            return CommandResult(
+            val rolledBack = runner(options)
+            if (rolledBack.isEmpty()) {
+                return CommandResult(
+                    exitCode = 0,
+                    message = CommandOutputStyle.info("No hay migraciones para rollback.")
+                )
+            }
+
+            CommandResult(
                 exitCode = 0,
-                message = CommandOutputStyle.info("No hay migraciones para rollback.")
+                message = buildSuccessOutput(rolledBack)
+            )
+        } catch (error: Throwable) {
+            CommandResult(
+                exitCode = 1,
+                message = CommandOutputStyle.error(
+                    "Fallo al hacer rollback de migraciones: ${CommandOutputStyle.throwableChain(error)}"
+                )
             )
         }
-
-        return CommandResult(
-            exitCode = 0,
-            message = buildSuccessOutput(rolledBack)
-        )
     }
 
     private fun parseStep(value: String?): Int {

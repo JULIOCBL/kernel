@@ -340,7 +340,16 @@ class Migrator(
 
     private fun Connection.executeStatements(statements: List<String>) {
         createStatement().use { statement ->
-            statements.forEach(statement::execute)
+            statements.forEach { sql ->
+                try {
+                    statement.execute(sql)
+                } catch (error: Throwable) {
+                    throw IllegalStateException(
+                        "SQL error while executing migration statement: $sql",
+                        error
+                    )
+                }
+            }
         }
     }
 

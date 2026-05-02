@@ -18,7 +18,7 @@ class MariaDbGrammarTest {
 
         assertEquals(
             """
-            CREATE TABLE IF NOT EXISTS playground_runtime_probe (
+            CREATE TABLE playground_runtime_probe (
                 id CHAR(36) NOT NULL,
                 label VARCHAR(120) NOT NULL,
                 created_at TIMESTAMP,

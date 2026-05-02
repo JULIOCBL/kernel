@@ -320,10 +320,11 @@ create("products") {
 }
 ```
 
-`create` usa `CREATE TABLE IF NOT EXISTS` por defecto. Puedes desactivarlo:
+`create` es estricto por defecto, al estilo Laravel. Si quieres una creacion
+tolerante, debes pedirla explicitamente:
 
 ```kotlin
-create("products", ifNotExists = false) {
+create("products", ifNotExists = true) {
     id().primaryKey()
 }
 ```
@@ -405,7 +406,7 @@ table("users") {
 SQL:
 
 ```sql
-ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(30);
+ALTER TABLE users ADD COLUMN phone VARCHAR(30);
 ALTER TABLE users RENAME COLUMN name TO full_name;
 ALTER TABLE users DROP COLUMN IF EXISTS legacy_code;
 ```
@@ -897,7 +898,7 @@ table("users") {
 SQL:
 
 ```sql
-CREATE INDEX IF NOT EXISTS users_email_index ON users (email);
+CREATE INDEX users_email_index ON users (email);
 ```
 
 Indice unico:
@@ -911,7 +912,7 @@ table("users") {
 SQL:
 
 ```sql
-CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (email);
+CREATE UNIQUE INDEX users_email_unique ON users (email);
 ```
 
 Indice compuesto:
@@ -925,7 +926,7 @@ table("orders") {
 SQL:
 
 ```sql
-CREATE INDEX IF NOT EXISTS orders_customer_id_created_at_index ON orders (customer_id, created_at);
+CREATE INDEX orders_customer_id_created_at_index ON orders (customer_id, created_at);
 ```
 
 Indice concurrente:
@@ -1030,7 +1031,7 @@ SQL:
 ```sql
 CREATE TYPE order_status AS ENUM ('pending', 'paid', 'cancelled');
 
-CREATE TABLE IF NOT EXISTS orders (
+CREATE TABLE orders (
     id UUID NOT NULL,
     status order_status NOT NULL DEFAULT 'pending',
     PRIMARY KEY (id)
@@ -1145,7 +1146,7 @@ createSequence(
 SQL:
 
 ```sql
-CREATE SEQUENCE IF NOT EXISTS pos.ticket_numbers INCREMENT BY 1 START WITH 1000 CACHE 10 OWNED BY pos.orders.ticket_number;
+CREATE SEQUENCE pos.ticket_numbers INCREMENT BY 1 START WITH 1000 CACHE 10 OWNED BY pos.orders.ticket_number;
 ```
 
 Tambien puedes usar:

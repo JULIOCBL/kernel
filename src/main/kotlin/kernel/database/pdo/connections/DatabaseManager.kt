@@ -69,6 +69,11 @@ class DatabaseManager private constructor(
         return connect(name).use(block)
     }
 
+    fun resolvedConnectionProperties(name: String? = null): Map<String, String> {
+        val targetConfig = connectionConfig(name)
+        return targetConfig.resolvedProperties()
+    }
+
     internal fun activePooledConnectionNames(): Set<String> = activePools.keys.toSet()
 
     override fun close() {
@@ -103,7 +108,9 @@ class DatabaseManager private constructor(
         }
 
         fun from(config: ConfigStore): DatabaseManager {
-            return DatabaseManager(DatabaseConfigResolver.resolve(config))
+            return DatabaseManager(
+                configuration = DatabaseConfigResolver.resolve(config)
+            )
         }
     }
 }

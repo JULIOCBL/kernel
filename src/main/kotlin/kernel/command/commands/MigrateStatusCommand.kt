@@ -16,23 +16,32 @@ class MigrateStatusCommand(
     override val name: String = "migrate:status"
 
     override fun execute(input: CommandInput): CommandResult {
-        val options = MigrationStatusOptions(
-            database = input.option("database")?.trim()?.takeIf(String::isNotEmpty),
-            only = parseMigrationOnlyOption(input.option("only"))
-        )
+        return try {
+            val options = MigrationStatusOptions(
+                database = input.option("database")?.trim()?.takeIf(String::isNotEmpty),
+                only = parseMigrationOnlyOption(input.option("only"))
+            )
 
-        val statuses = statusResolver(options)
-        if (statuses.isEmpty()) {
-            return CommandResult(
+            val statuses = statusResolver(options)
+            if (statuses.isEmpty()) {
+                return CommandResult(
+                    exitCode = 0,
+                    message = CommandOutputStyle.info("No hay migraciones registradas.")
+                )
+            }
+
+            CommandResult(
                 exitCode = 0,
-                message = CommandOutputStyle.info("No hay migraciones registradas.")
+                message = renderStatuses(statuses)
+            )
+        } catch (error: Throwable) {
+            CommandResult(
+                exitCode = 1,
+                message = CommandOutputStyle.error(
+                    "Fallo al consultar estado de migraciones: ${CommandOutputStyle.throwableChain(error)}"
+                )
             )
         }
-
-        return CommandResult(
-            exitCode = 0,
-            message = renderStatuses(statuses)
-        )
     }
 
     private fun renderStatuses(statuses: List<MigrationStatus>): String {

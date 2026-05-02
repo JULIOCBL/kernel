@@ -1,6 +1,7 @@
 package kernel.database
 
 import kernel.config.MapConfigLoader
+import kernel.database.pdo.connections.DatabaseManager
 import kernel.database.pdo.drivers.MariaDbDriver
 import kernel.database.pdo.drivers.PostgreSqlDriver
 import kernel.foundation.Application

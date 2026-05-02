@@ -31,19 +31,10 @@ data class DatabaseConnectionConfig(
         }
     }
 
-    fun open(): Connection {
+    fun open(extraProperties: Map<String, String> = emptyMap()): Connection {
         loadDriverIfNeeded()
 
-        val connectionProperties = Properties()
-        properties.forEach(connectionProperties::setProperty)
-
-        if (!username.isNullOrBlank()) {
-            connectionProperties.setProperty("user", username)
-        }
-
-        if (!password.isNullOrBlank()) {
-            connectionProperties.setProperty("password", password)
-        }
+        val connectionProperties = toConnectionProperties(extraProperties)
 
         return if (connectionProperties.isEmpty()) {
             DriverManager.getConnection(url)
@@ -52,8 +43,9 @@ data class DatabaseConnectionConfig(
         }
     }
 
-    internal fun createPooledDataSource(): HikariDataSource {
+    internal fun createPooledDataSource(extraProperties: Map<String, String> = emptyMap()): HikariDataSource {
         loadDriverIfNeeded()
+        val connectionProperties = toConnectionProperties(extraProperties)
 
         val hikari = HikariConfig().apply {
             poolName = "kernel-$name"
@@ -70,7 +62,9 @@ data class DatabaseConnectionConfig(
             if (pool.keepAliveTimeMs > 0) {
                 keepaliveTime = pool.keepAliveTimeMs
             }
-            properties.forEach(::addDataSourceProperty)
+            connectionProperties.forEach { key, value ->
+                addDataSourceProperty(key.toString(), value)
+            }
         }
 
         return HikariDataSource(hikari)
@@ -83,5 +77,29 @@ data class DatabaseConnectionConfig(
     private fun resolvedJdbcDriverClass(): String {
         return jdbcDriverClass?.trim()?.takeIf(String::isNotEmpty)
             ?: driver.defaultJdbcDriverClass
+    }
+
+    fun resolvedProperties(extraProperties: Map<String, String> = emptyMap()): Map<String, String> {
+        val resolved = linkedMapOf<String, String>()
+
+        resolved.putAll(properties)
+        resolved.putAll(extraProperties)
+
+        if (!username.isNullOrBlank()) {
+            resolved["user"] = username
+        }
+
+        if (!password.isNullOrBlank()) {
+            resolved["password"] = password
+        }
+
+        return resolved.toMap()
+    }
+
+    private fun toConnectionProperties(extraProperties: Map<String, String>): Properties {
+        val connectionProperties = Properties()
+        resolvedProperties(extraProperties).forEach(connectionProperties::setProperty)
+
+        return connectionProperties
     }
 }

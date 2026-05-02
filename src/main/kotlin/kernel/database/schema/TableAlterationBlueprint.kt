@@ -55,7 +55,7 @@ class TableAlterationBlueprint internal constructor(
     fun index(
         vararg columns: String,
         name: String = portableDsl.defaultIndexName(columns.toList(), "index"),
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         concurrently: Boolean = false,
         using: String? = null,
         include: List<String> = emptyList(),
@@ -76,7 +76,7 @@ class TableAlterationBlueprint internal constructor(
     fun unique(
         vararg columns: String,
         name: String = portableDsl.defaultIndexName(columns.toList(), "unique"),
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         concurrently: Boolean = false,
         using: String? = null,
         include: List<String> = emptyList(),
@@ -97,7 +97,7 @@ class TableAlterationBlueprint internal constructor(
     fun gin(
         vararg columns: String,
         name: String = portableDsl.defaultIndexName(columns.toList(), "gin"),
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         concurrently: Boolean = false,
         where: String? = null
     ) {
@@ -107,7 +107,7 @@ class TableAlterationBlueprint internal constructor(
     fun gist(
         vararg columns: String,
         name: String = portableDsl.defaultIndexName(columns.toList(), "gist"),
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         concurrently: Boolean = false,
         where: String? = null
     ) {
@@ -117,7 +117,7 @@ class TableAlterationBlueprint internal constructor(
     fun brin(
         vararg columns: String,
         name: String = portableDsl.defaultIndexName(columns.toList(), "brin"),
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         concurrently: Boolean = false,
         where: String? = null
     ) {
@@ -128,7 +128,7 @@ class TableAlterationBlueprint internal constructor(
         name: String,
         expression: String,
         unique: Boolean = false,
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         concurrently: Boolean = false,
         using: String? = null,
         include: List<String> = emptyList(),

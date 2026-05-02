@@ -12,7 +12,7 @@ class MigrationSqlGeneratorTest {
 
         assertEquals(
             """
-            CREATE TABLE IF NOT EXISTS example_table (
+            CREATE TABLE example_table (
                 id UUID NOT NULL,
                 name VARCHAR(100) NOT NULL,
                 created_at TIMESTAMP NOT NULL,
@@ -38,7 +38,7 @@ class MigrationSqlGeneratorTest {
 
         assertEquals(
             """
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE users (
                 id UUID NOT NULL,
                 email VARCHAR(255) NOT NULL,
                 PRIMARY KEY (id)
@@ -79,7 +79,7 @@ class MigrationSqlGeneratorTest {
 
         assertEquals(
             """
-            CREATE TABLE IF NOT EXISTS products (
+            CREATE TABLE products (
                 id UUID NOT NULL DEFAULT gen_random_uuid(),
                 sku VARCHAR(64) NOT NULL UNIQUE,
                 description TEXT,
@@ -157,7 +157,7 @@ class MigrationSqlGeneratorTest {
 
         assertEquals(
             """
-            CREATE TABLE IF NOT EXISTS postgres_types (
+            CREATE TABLE postgres_types (
                 small_count SMALLINT,
                 count INTEGER,
                 big_count BIGINT,
@@ -236,7 +236,7 @@ class MigrationSqlGeneratorTest {
         assertEquals("CREATE EXTENSION IF NOT EXISTS pgcrypto;", statements.first())
         assertEquals(
             """
-            CREATE TABLE IF NOT EXISTS audit_logs (
+            CREATE TABLE audit_logs (
                 id UUID NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL,
                 PRIMARY KEY (id)
@@ -274,7 +274,7 @@ class MigrationSqlGeneratorTest {
 
         assertEquals(
             """
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) NOT NULL UNIQUE;
+            ALTER TABLE users ADD COLUMN email VARCHAR(255) NOT NULL UNIQUE;
 
             ALTER TABLE users RENAME COLUMN name TO full_name;
 
@@ -320,9 +320,9 @@ class MigrationSqlGeneratorTest {
 
         assertEquals(
             """
-            CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (email);
+            CREATE UNIQUE INDEX users_email_unique ON users (email);
 
-            CREATE INDEX CONCURRENTLY IF NOT EXISTS orders_customer_id_created_at_index ON orders (customer_id, created_at);
+            CREATE INDEX CONCURRENTLY orders_customer_id_created_at_index ON orders (customer_id, created_at);
             """.trimIndent(),
             generator.generateUp(migration)
         )
@@ -358,7 +358,7 @@ class MigrationSqlGeneratorTest {
 
         assertEquals(
             """
-            CREATE TABLE IF NOT EXISTS orders (
+            CREATE TABLE orders (
                 id UUID NOT NULL,
                 customer_id UUID NOT NULL,
                 subtotal NUMERIC(12, 2) NOT NULL,
@@ -406,9 +406,9 @@ class MigrationSqlGeneratorTest {
 
         assertEquals(
             """
-            CREATE INDEX IF NOT EXISTS orders_metadata_gin ON orders USING gin (metadata) WHERE metadata IS NOT NULL;
+            CREATE INDEX orders_metadata_gin ON orders USING gin (metadata) WHERE metadata IS NOT NULL;
 
-            CREATE INDEX IF NOT EXISTS orders_lower_code_index ON orders (lower(code)) INCLUDE (id) WHERE deleted_at IS NULL;
+            CREATE INDEX orders_lower_code_index ON orders (lower(code)) INCLUDE (id) WHERE deleted_at IS NULL;
 
             ALTER TABLE orders ADD CONSTRAINT orders_customer_id_foreign FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -487,18 +487,18 @@ class MigrationSqlGeneratorTest {
 
         assertEquals(
             """
-            CREATE SCHEMA IF NOT EXISTS pos;
+            CREATE SCHEMA pos;
 
-            CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+            CREATE EXTENSION pgcrypto WITH SCHEMA public;
 
-            CREATE SEQUENCE IF NOT EXISTS pos.ticket_numbers INCREMENT BY 1 START WITH 1000 CACHE 10 OWNED BY pos.orders.ticket_number;
+            CREATE SEQUENCE pos.ticket_numbers INCREMENT BY 1 START WITH 1000 CACHE 10 OWNED BY pos.orders.ticket_number;
 
             CREATE DOMAIN positive_money AS NUMERIC(12, 2) NOT NULL CHECK (VALUE >= 0);
 
             CREATE OR REPLACE VIEW pos.open_orders AS
             SELECT * FROM pos.orders WHERE paid_at IS NULL;
 
-            CREATE MATERIALIZED VIEW IF NOT EXISTS pos.daily_sales AS
+            CREATE MATERIALIZED VIEW pos.daily_sales AS
             SELECT current_date AS sold_on, 0::numeric AS total WITH NO DATA;
 
             REFRESH MATERIALIZED VIEW CONCURRENTLY pos.daily_sales WITH DATA;
@@ -569,7 +569,7 @@ class MigrationSqlGeneratorTest {
 
         assertEquals(
             """
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE users (
                 id UUID NOT NULL DEFAULT gen_random_uuid(),
                 name VARCHAR(255),
                 email VARCHAR(255) UNIQUE,
@@ -607,13 +607,13 @@ class MigrationSqlGeneratorTest {
             """
             CREATE TYPE order_status AS ENUM ('pending', 'paid', 'cancelled');
 
-            CREATE TABLE IF NOT EXISTS orders (
+            CREATE TABLE orders (
                 id UUID NOT NULL,
                 status order_status NOT NULL DEFAULT 'pending',
                 PRIMARY KEY (id)
             );
 
-            ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'refunded' AFTER 'paid';
+            ALTER TYPE order_status ADD VALUE 'refunded' AFTER 'paid';
 
             ALTER TYPE order_status RENAME VALUE 'cancelled' TO 'voided';
             """.trimIndent(),

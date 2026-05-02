@@ -42,13 +42,13 @@ class MigrationIndexFeatureTest {
 
         assertGeneratedStatements(
             listOf(
-                "CREATE INDEX IF NOT EXISTS orders_customer_id_created_at_index ON orders (customer_id, created_at);",
-                "CREATE UNIQUE INDEX IF NOT EXISTS orders_store_id_number_unique ON orders (store_id, number);",
-                "CREATE INDEX IF NOT EXISTS orders_metadata_gin ON orders USING gin (metadata) WHERE metadata IS NOT NULL;",
-                "CREATE INDEX IF NOT EXISTS orders_during_gist ON orders USING gist (during);",
-                "CREATE INDEX CONCURRENTLY IF NOT EXISTS orders_created_at_brin ON orders USING brin (created_at);",
-                "CREATE INDEX IF NOT EXISTS orders_lower_code_index ON orders (lower(code)) INCLUDE (id) WHERE deleted_at IS NULL;",
-                "CREATE INDEX IF NOT EXISTS orders_status_index ON orders USING btree (status) INCLUDE (id) WHERE deleted_at IS NULL;"
+                "CREATE INDEX orders_customer_id_created_at_index ON orders (customer_id, created_at);",
+                "CREATE UNIQUE INDEX orders_store_id_number_unique ON orders (store_id, number);",
+                "CREATE INDEX orders_metadata_gin ON orders USING gin (metadata) WHERE metadata IS NOT NULL;",
+                "CREATE INDEX orders_during_gist ON orders USING gist (during);",
+                "CREATE INDEX CONCURRENTLY orders_created_at_brin ON orders USING brin (created_at);",
+                "CREATE INDEX orders_lower_code_index ON orders (lower(code)) INCLUDE (id) WHERE deleted_at IS NULL;",
+                "CREATE INDEX orders_status_index ON orders USING btree (status) INCLUDE (id) WHERE deleted_at IS NULL;"
             ),
             generator.generateUpStatements(migration)
         )

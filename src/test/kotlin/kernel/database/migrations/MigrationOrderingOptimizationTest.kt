@@ -40,23 +40,23 @@ class MigrationOrderingOptimizationTest {
 
         assertEquals(
             listOf(
-                "CREATE EXTENSION IF NOT EXISTS pgcrypto;",
+                "CREATE EXTENSION pgcrypto;",
                 "CREATE TYPE payment_status AS ENUM ('pending', 'paid');",
                 """
-                CREATE TABLE IF NOT EXISTS customers (
+                CREATE TABLE customers (
                     id UUID NOT NULL,
                     PRIMARY KEY (id)
                 );
                 """.trimIndent(),
                 """
-                CREATE TABLE IF NOT EXISTS orders (
+                CREATE TABLE orders (
                     id UUID NOT NULL,
                     customer_id UUID,
                     PRIMARY KEY (id),
                     CONSTRAINT orders_customer_id_foreign FOREIGN KEY (customer_id) REFERENCES customers (id)
                 );
                 """.trimIndent(),
-                "CREATE INDEX IF NOT EXISTS orders_customer_id_index ON orders (customer_id);",
+                "CREATE INDEX orders_customer_id_index ON orders (customer_id);",
                 """
                 CREATE OR REPLACE VIEW paid_orders AS
                 SELECT * FROM orders;

@@ -34,10 +34,10 @@ class MigrationDatabaseObjectFeatureTest {
 
         assertGeneratedStatements(
             listOf(
-                "CREATE SCHEMA IF NOT EXISTS pos;",
+                "CREATE SCHEMA pos;",
                 "ALTER SCHEMA pos RENAME TO point_of_sale;",
-                "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public VERSION '1.3';",
-                "CREATE SEQUENCE IF NOT EXISTS point_of_sale.ticket_numbers INCREMENT BY 1 MINVALUE 1 MAXVALUE 999999 START WITH 1000 CACHE 10 CYCLE OWNED BY point_of_sale.orders.ticket_number;",
+                "CREATE EXTENSION pgcrypto WITH SCHEMA public VERSION '1.3';",
+                "CREATE SEQUENCE point_of_sale.ticket_numbers INCREMENT BY 1 MINVALUE 1 MAXVALUE 999999 START WITH 1000 CACHE 10 CYCLE OWNED BY point_of_sale.orders.ticket_number;",
                 "ALTER SEQUENCE point_of_sale.ticket_numbers RENAME TO point_of_sale.order_numbers;"
             ),
             generator.generateUpStatements(migration)
@@ -96,7 +96,7 @@ class MigrationDatabaseObjectFeatureTest {
                 SELECT * FROM pos.orders WHERE paid_at IS NULL;
                 """,
                 """
-                CREATE MATERIALIZED VIEW IF NOT EXISTS pos.daily_sales AS
+                CREATE MATERIALIZED VIEW pos.daily_sales AS
                 SELECT current_date AS sold_on, 0::numeric AS total WITH NO DATA;
                 """,
                 "REFRESH MATERIALIZED VIEW CONCURRENTLY pos.daily_sales WITH DATA;",

@@ -27,7 +27,7 @@ class MigrationColumnFeatureTest {
 
         assertGeneratedSql(
             """
-            CREATE TABLE IF NOT EXISTS orders (
+            CREATE TABLE orders (
                 id UUID NOT NULL DEFAULT gen_random_uuid(),
                 code VARCHAR(40) NOT NULL UNIQUE,
                 active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -77,7 +77,7 @@ class MigrationColumnFeatureTest {
 
         assertGeneratedSql(
             """
-            CREATE TABLE IF NOT EXISTS postgres_types (
+            CREATE TABLE postgres_types (
                 small_count SMALLINT,
                 count INTEGER,
                 big_count BIGINT,

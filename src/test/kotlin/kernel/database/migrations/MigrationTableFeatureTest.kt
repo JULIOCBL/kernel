@@ -26,7 +26,7 @@ class MigrationTableFeatureTest {
         assertGeneratedStatements(
             listOf(
                 """
-                CREATE TABLE IF NOT EXISTS users (
+                CREATE TABLE users (
                     id UUID NOT NULL,
                     email VARCHAR(255) NOT NULL UNIQUE,
                     created_at TIMESTAMPTZ,

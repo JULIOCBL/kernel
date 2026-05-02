@@ -60,13 +60,13 @@ abstract class Migration {
 
     protected fun create(
         name: String,
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         definition: TableBlueprint.() -> Unit
     ) = createTable(name, ifNotExists, definition)
 
     protected fun createTable(
         name: String,
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         definition: TableBlueprint.() -> Unit
     ) = portableDsl.createTable(name, ifNotExists, definition)
 
@@ -86,7 +86,7 @@ abstract class Migration {
         portableDsl.dropTable(name, ifExists)
     }
 
-    protected fun createSchema(name: String, ifNotExists: Boolean = true) {
+    protected fun createSchema(name: String, ifNotExists: Boolean = false) {
         postgresDsl.createSchema(name, ifNotExists)
     }
 
@@ -104,7 +104,7 @@ abstract class Migration {
 
     protected fun createExtension(
         name: String,
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         schema: String? = null,
         version: String? = null
     ) {
@@ -130,7 +130,7 @@ abstract class Migration {
     protected fun addEnumValue(
         name: String,
         value: String,
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         before: String? = null,
         after: String? = null
     ) {
@@ -165,7 +165,7 @@ abstract class Migration {
 
     protected fun addColumn(
         table: String,
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         definition: ColumnBlueprint.() -> ColumnDefinition
     ) {
         portableDsl.addColumn(table, ifNotExists, definition)
@@ -235,7 +235,7 @@ abstract class Migration {
         table: String,
         vararg columns: String,
         unique: Boolean = false,
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         concurrently: Boolean = false,
         using: String? = null,
         include: List<String> = emptyList(),
@@ -282,7 +282,7 @@ abstract class Migration {
     protected fun createMaterializedView(
         name: String,
         query: String,
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         withData: Boolean = true
     ) {
         postgresDsl.createMaterializedView(name, query, ifNotExists, withData)
@@ -306,7 +306,7 @@ abstract class Migration {
 
     protected fun createSequence(
         name: String,
-        ifNotExists: Boolean = true,
+        ifNotExists: Boolean = false,
         incrementBy: Long? = null,
         minValue: Long? = null,
         maxValue: Long? = null,

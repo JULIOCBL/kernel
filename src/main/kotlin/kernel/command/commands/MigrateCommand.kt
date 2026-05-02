@@ -14,23 +14,32 @@ class MigrateCommand(
     override val name: String = "migrate"
 
     override fun execute(input: CommandInput): CommandResult {
-        val options = MigrationRunOptions(
-            database = input.option("database")?.trim()?.takeIf(String::isNotEmpty),
-            only = parseMigrationOnlyOption(input.option("only"))
-        )
+        return try {
+            val options = MigrationRunOptions(
+                database = input.option("database")?.trim()?.takeIf(String::isNotEmpty),
+                only = parseMigrationOnlyOption(input.option("only"))
+            )
 
-        val executed = runner(options)
-        if (executed.isEmpty()) {
-            return CommandResult(
+            val executed = runner(options)
+            if (executed.isEmpty()) {
+                return CommandResult(
+                    exitCode = 0,
+                    message = CommandOutputStyle.info("No hay migraciones pendientes.")
+                )
+            }
+
+            CommandResult(
                 exitCode = 0,
-                message = CommandOutputStyle.info("No hay migraciones pendientes.")
+                message = buildSuccessOutput(executed)
+            )
+        } catch (error: Throwable) {
+            CommandResult(
+                exitCode = 1,
+                message = CommandOutputStyle.error(
+                    "Fallo al ejecutar migraciones: ${CommandOutputStyle.throwableChain(error)}"
+                )
             )
         }
-
-        return CommandResult(
-            exitCode = 0,
-            message = buildSuccessOutput(executed)
-        )
     }
 
     private fun buildSuccessOutput(executed: List<String>): String {

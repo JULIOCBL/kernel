@@ -31,7 +31,7 @@ internal class PortableTableAlterationDsl(
             AddColumnStatement(
                 table = table,
                 column = column,
-                ifNotExists = true
+                ifNotExists = false
             )
         )
 

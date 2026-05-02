@@ -29,13 +29,13 @@ class MigrationEnumDomainFeatureTest {
             listOf(
                 "CREATE TYPE order_status AS ENUM ('pending', 'paid', 'cancelled');",
                 """
-                CREATE TABLE IF NOT EXISTS orders (
+                CREATE TABLE orders (
                     id UUID NOT NULL,
                     status order_status NOT NULL DEFAULT 'pending',
                     PRIMARY KEY (id)
                 );
                 """,
-                "ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'refunded' AFTER 'paid';",
+                "ALTER TYPE order_status ADD VALUE 'refunded' AFTER 'paid';",
                 "ALTER TYPE order_status RENAME VALUE 'cancelled' TO 'voided';",
                 "ALTER TYPE order_status RENAME TO payment_status;"
             ),

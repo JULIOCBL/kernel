@@ -26,7 +26,7 @@ class MigrationAlterTableFeatureTest {
 
         assertGeneratedStatements(
             listOf(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(30);",
+                "ALTER TABLE users ADD COLUMN phone VARCHAR(30);",
                 "ALTER TABLE users RENAME COLUMN name TO full_name;",
                 "ALTER TABLE users ALTER COLUMN age TYPE BIGINT USING age::bigint;",
                 "ALTER TABLE users ALTER COLUMN active SET DEFAULT TRUE;",

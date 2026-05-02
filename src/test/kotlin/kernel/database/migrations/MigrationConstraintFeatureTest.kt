@@ -29,7 +29,7 @@ class MigrationConstraintFeatureTest {
 
         assertGeneratedSql(
             """
-            CREATE TABLE IF NOT EXISTS orders (
+            CREATE TABLE orders (
                 id UUID NOT NULL,
                 customer_id UUID NOT NULL,
                 total NUMERIC(12, 2) NOT NULL,

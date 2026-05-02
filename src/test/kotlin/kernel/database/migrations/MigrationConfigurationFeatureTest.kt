@@ -28,7 +28,7 @@ class MigrationConfigurationFeatureTest {
         assertTrue(migration.withinTransaction)
         assertEquals(
             """
-            CREATE TABLE IF NOT EXISTS default_config_entries (
+            CREATE TABLE default_config_entries (
                 id UUID NOT NULL,
                 PRIMARY KEY (id)
             );
@@ -59,7 +59,7 @@ class MigrationConfigurationFeatureTest {
         assertFalse(migration.withinTransaction)
         assertEquals(
             """
-            CREATE TABLE IF NOT EXISTS driver_pinned_entries (
+            CREATE TABLE driver_pinned_entries (
                 id CHAR(36) NOT NULL DEFAULT UUID(),
                 label VARCHAR(255) NOT NULL,
                 PRIMARY KEY (id)
