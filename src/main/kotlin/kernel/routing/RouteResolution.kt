@@ -7,5 +7,6 @@ data class RouteResolution(
     val scheme: String,
     val path: String,
     val params: Map<String, String>,
-    val payload: Any?
+    val payload: Any?,
+    val middleware: List<String> = emptyList()
 )

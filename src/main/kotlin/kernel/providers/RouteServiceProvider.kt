@@ -1,6 +1,7 @@
 package kernel.providers
 
 import kernel.foundation.Application
+import kernel.foundation.DesktopKernel
 import kernel.routing.ApiRouter
 import kernel.routing.ControllerRegistry
 import kernel.routing.DefaultDesktopViewDispatcher
@@ -29,12 +30,17 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
         val desktopRouteState = RouteStateStore<RouteResolution>()
         val desktopViewState = RouteStateStore<DesktopView>()
         val controllerRegistry = ControllerRegistry()
+        val desktopKernel =
+            app.config.get("services.routes.desktop.kernel") as? DesktopKernel
+                ?: DesktopKernel(app)
         val desktopViewDispatcher =
             app.config.get("services.routes.desktop.dispatcher") as? DesktopViewDispatcher
                 ?: DefaultDesktopViewDispatcher
         val desktopNavigator = DesktopNavigator(
+            app = app,
             links = desktopLinks,
             router = desktopRouter,
+            desktopKernel = desktopKernel,
             routeState = desktopRouteState,
             viewState = desktopViewState,
             viewDispatcher = desktopViewDispatcher
@@ -47,6 +53,7 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
         app.config.set("services.routes.desktop.links", desktopLinks)
         app.config.set("services.routes.desktop.state", desktopRouteState)
         app.config.set("services.routes.desktop.view_state", desktopViewState)
+        app.config.set("services.routes.desktop.kernel", desktopKernel)
         app.config.set("services.routes.desktop.dispatcher", desktopViewDispatcher)
         app.config.set("services.routes.desktop.navigator", desktopNavigator)
         app.config.set("services.routes.api.router", apiRouter)

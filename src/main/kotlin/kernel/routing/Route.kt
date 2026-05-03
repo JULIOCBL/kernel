@@ -15,6 +15,40 @@ import kotlin.reflect.jvm.isAccessible
 object Route {
     private val currentRegistrar = ThreadLocal<SchemeRouter?>()
 
+    class PendingRouteRegistration internal constructor(
+        private val path: String
+    ) {
+        private val aliases = linkedSetOf<String>()
+        private var routeName: String? = null
+
+        fun middleware(vararg middleware: String): PendingRouteRegistration {
+            middleware
+                .map(String::trim)
+                .filter(String::isNotBlank)
+                .forEach(aliases::add)
+
+            return this
+        }
+
+        fun name(name: String): PendingRouteRegistration {
+            val normalized = name.trim()
+            require(normalized.isNotBlank()) {
+                "El nombre de ruta no puede estar vacio."
+            }
+
+            routeName = normalized
+            return this
+        }
+
+        fun action(action: () -> Any?) {
+            register(path, { action() }, aliases.toList(), routeName)
+        }
+
+        fun action(action: (Map<String, String>) -> Any?) {
+            register(path, action, aliases.toList(), routeName)
+        }
+    }
+
     fun view(
         name: String,
         data: Map<String, Any?> = emptyMap(),
@@ -31,22 +65,26 @@ object Route {
         register(path, action)
     }
 
+    fun get(path: String): PendingRouteRegistration {
+        return PendingRouteRegistration(path)
+    }
+
     @JvmName("getControllerNoParams")
     fun <T : Any, R> get(path: String, action: KFunction1<T, R>) {
-        register(path) {
+        register(path, {
             val controller = resolveController(action)
             action.isAccessible = true
             action.call(controller)
-        }
+        })
     }
 
     @JvmName("getControllerWithParams")
     fun <T : Any, R> get(path: String, action: KFunction2<T, Map<String, String>, R>) {
-        register(path) { params ->
+        register(path, { params ->
             val controller = resolveController(action)
             action.isAccessible = true
             action.call(controller, params)
-        }
+        })
     }
 
     @JvmName("getControllerNoParamsWithView")
@@ -55,11 +93,11 @@ object Route {
         action: KFunction1<T, R>,
         view: (R) -> Any?
     ) {
-        register(path) {
+        register(path, {
             val controller = resolveController(action)
             action.isAccessible = true
             view(action.call(controller))
-        }
+        })
     }
 
     @JvmName("getControllerWithParamsWithView")
@@ -68,11 +106,11 @@ object Route {
         action: KFunction2<T, Map<String, String>, R>,
         view: (R) -> Any?
     ) {
-        register(path) { params ->
+        register(path, { params ->
             val controller = resolveController(action)
             action.isAccessible = true
             view(action.call(controller, params))
-        }
+        })
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -96,6 +134,17 @@ object Route {
             ?: error("ApiRouter no esta registrado en services.routes.api.router.")
     }
 
+    fun route(
+        name: String,
+        params: Map<String, String> = emptyMap()
+    ): String {
+        val app = ApplicationRuntime.current()
+        val links = app.config.get("services.routes.desktop.links") as? LinkGenerator
+            ?: error("LinkGenerator no esta registrado en services.routes.desktop.links.")
+
+        return links.desktop(desktop().pathFor(name, params))
+    }
+
     internal fun withRouter(router: SchemeRouter, block: () -> Unit) {
         val previous = currentRegistrar.get()
         currentRegistrar.set(router)
@@ -107,14 +156,19 @@ object Route {
         }
     }
 
-    private fun register(path: String, action: (Map<String, String>) -> Any?) {
+    private fun register(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null
+    ) {
         val router = currentRegistrar.get()
             ?: error(
                 "No hay un router activo para registrar la ruta `$path`. " +
                     "Las rutas deben declararse dentro del cargador oficial del kernel."
             )
 
-        router.get(path, action)
+        router.get(path, action, middleware, name)
     }
 
     @JvmName("resolveControllerFromKFunction1")

@@ -5,7 +5,20 @@ import java.net.URI
 private data class CompiledRoute(
     val pattern: Regex,
     val paramNames: List<String>,
+    val middleware: List<String>,
+    val name: String?,
     val action: (Map<String, String>) -> Any?
+)
+
+private data class RegisteredRoute(
+    val middleware: List<String>,
+    val name: String?,
+    val action: (Map<String, String>) -> Any?
+)
+
+private data class NamedRoute(
+    val path: String,
+    val paramNames: List<String>
 )
 
 /**
@@ -14,16 +27,33 @@ private data class CompiledRoute(
 open class SchemeRouter(
     private val scheme: String
 ) {
-    private val staticRoutes = HashMap<String, (Map<String, String>) -> Any?>()
+    private val staticRoutes = HashMap<String, RegisteredRoute>()
     private val dynamicRoutes = mutableListOf<CompiledRoute>()
+    private val namedRoutes = HashMap<String, NamedRoute>()
 
-    fun get(path: String, action: (Map<String, String>) -> Any?) {
+    fun get(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null
+    ) {
         val normalized = normalizePath(path)
 
         if (!normalized.contains('{')) {
-            staticRoutes[normalized] = action
+            staticRoutes[normalized] = RegisteredRoute(
+                middleware = middleware,
+                name = name,
+                action = action
+            )
         } else {
-            compileDynamicRoute(normalized, action)
+            compileDynamicRoute(normalized, action, middleware, name)
+        }
+
+        if (!name.isNullOrBlank()) {
+            namedRoutes[name] = NamedRoute(
+                path = normalized,
+                paramNames = extractParamNames(normalized)
+            )
         }
     }
 
@@ -37,12 +67,13 @@ open class SchemeRouter(
         val normalizedPath = normalizePath(path)
         val queryParams = extractQueryParams(uri)
 
-        staticRoutes[normalizedPath]?.let { action ->
+        staticRoutes[normalizedPath]?.let { route ->
             return RouteResolution(
                 scheme = scheme,
                 path = normalizedPath,
                 params = queryParams,
-                payload = action(queryParams)
+                payload = route.action(queryParams),
+                middleware = route.middleware
             )
         }
 
@@ -57,7 +88,8 @@ open class SchemeRouter(
                 scheme = scheme,
                 path = normalizedPath,
                 params = params,
-                payload = route.action(params)
+                payload = route.action(params),
+                middleware = route.middleware
             )
         }
 
@@ -65,6 +97,31 @@ open class SchemeRouter(
     }
 
     fun scheme(): String = scheme
+
+    fun pathFor(
+        name: String,
+        params: Map<String, String> = emptyMap()
+    ): String {
+        val route = namedRoutes[name]
+            ?: error("No existe una ruta nombrada `$name` en el router `$scheme`.")
+
+        val missing = route.paramNames.filterNot(params::containsKey)
+        require(missing.isEmpty()) {
+            "Faltan parametros para la ruta `$name`: ${missing.joinToString(", ")}."
+        }
+
+        val resolved = route.path.replace(Regex("\\{([^}]+)\\}")) { match ->
+            val key = match.groupValues[1]
+            params[key]
+                ?: error("No existe valor para el parametro `$key` de la ruta `$name`.")
+        }
+
+        return when {
+            resolved.isBlank() -> "/"
+            resolved.startsWith("/") -> resolved
+            else -> "/$resolved"
+        }
+    }
 
     private fun buildPath(uri: URI): String {
         return (uri.authority ?: "") + (uri.path ?: "")
@@ -90,7 +147,12 @@ open class SchemeRouter(
         return params
     }
 
-    private fun compileDynamicRoute(path: String, action: (Map<String, String>) -> Any?) {
+    private fun compileDynamicRoute(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String>,
+        name: String?
+    ) {
         val paramNames = mutableListOf<String>()
         val regexString = path.replace(Regex("\\{([^}]+)\\}")) {
             paramNames += it.groupValues[1]
@@ -100,7 +162,16 @@ open class SchemeRouter(
         dynamicRoutes += CompiledRoute(
             pattern = Regex("^$regexString$"),
             paramNames = paramNames,
+            middleware = middleware,
+            name = name,
             action = action
         )
+    }
+
+    private fun extractParamNames(path: String): List<String> {
+        return Regex("\\{([^}]+)\\}")
+            .findAll(path)
+            .map { match -> match.groupValues[1] }
+            .toList()
     }
 }
