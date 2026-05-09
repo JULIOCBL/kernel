@@ -21,15 +21,21 @@ internal object RouteModuleLoader {
             optional = true
         )
 
-        if (loadedInternal) {
-            return
-        }
-
-        invokeLoader(
+        val loadedApi = invokeLoader(
             app = app,
             defaultClassName = "${routeNamespace(app)}.ApiKt",
             methodName = "defineApiRoutes",
-            router = router
+            router = router,
+            optional = true
+        )
+
+        if (loadedInternal || loadedApi) {
+            return
+        }
+
+        error(
+            "No se encontraron rutas API para `${routeNamespace(app)}`. " +
+                "Define `Internal.kt` o `Api.kt` con sus loaders oficiales."
         )
     }
 

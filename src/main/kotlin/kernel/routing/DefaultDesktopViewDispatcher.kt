@@ -1,5 +1,7 @@
 package kernel.routing
 
+import kernel.http.ViewResponse
+
 /**
  * Dispatcher por defecto del kernel para payloads comunes.
  */
@@ -8,6 +10,7 @@ object DefaultDesktopViewDispatcher : DesktopViewDispatcher {
         return when (val payload = resolution.payload) {
             null -> null
             is DesktopView -> payload
+            is ViewResponse -> payload.view
             is Map<*, *> -> mapPayloadToView(payload)
             else -> DesktopView(
                 name = resolution.path,
