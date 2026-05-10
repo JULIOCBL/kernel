@@ -1,8 +1,11 @@
 package kernel.routing
 
+import kernel.http.Request
 import java.net.URI
 
 private data class CompiledRoute(
+    val method: String,
+    val path: String,
     val pattern: Regex,
     val paramNames: List<String>,
     val middleware: List<String>,
@@ -11,6 +14,7 @@ private data class CompiledRoute(
 )
 
 private data class RegisteredRoute(
+    val method: String,
     val middleware: List<String>,
     val name: String?,
     val action: (Map<String, String>) -> Any?
@@ -21,33 +25,171 @@ private data class NamedRoute(
     val paramNames: List<String>
 )
 
+data class RouteDefinition(
+    val scheme: String,
+    val method: String,
+    val path: String,
+    val middleware: List<String> = emptyList(),
+    val name: String? = null,
+    val requestType: Class<out Request>? = null
+)
+
+data class RouteMatch(
+    val scheme: String,
+    val method: String,
+    val path: String,
+    val params: Map<String, String>,
+    val middleware: List<String> = emptyList(),
+    val action: (Map<String, String>) -> Any?
+)
+
 /**
  * Router base para esquemas internos del kernel.
  */
 open class SchemeRouter(
     private val scheme: String
 ) {
-    private val staticRoutes = HashMap<String, RegisteredRoute>()
+    private val staticRoutes = HashMap<String, MutableMap<String, RegisteredRoute>>()
     private val dynamicRoutes = mutableListOf<CompiledRoute>()
     private val namedRoutes = HashMap<String, NamedRoute>()
+    private val routeDefinitions = mutableListOf<RouteDefinition>()
 
     fun get(
         path: String,
         action: (Map<String, String>) -> Any?,
         middleware: List<String> = emptyList(),
-        name: String? = null
+        name: String? = null,
+        requestType: Class<out Request>? = null
+    ) {
+        register("GET", path, action, middleware, name, requestType)
+    }
+
+    fun post(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null,
+        requestType: Class<out Request>? = null
+    ) {
+        register("POST", path, action, middleware, name, requestType)
+    }
+
+    fun put(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null,
+        requestType: Class<out Request>? = null
+    ) {
+        register("PUT", path, action, middleware, name, requestType)
+    }
+
+    fun delete(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null,
+        requestType: Class<out Request>? = null
+    ) {
+        register("DELETE", path, action, middleware, name, requestType)
+    }
+
+    fun patch(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null,
+        requestType: Class<out Request>? = null
+    ) {
+        register("PATCH", path, action, middleware, name, requestType)
+    }
+
+    fun head(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null,
+        requestType: Class<out Request>? = null
+    ) {
+        register("HEAD", path, action, middleware, name, requestType)
+    }
+
+    fun options(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null,
+        requestType: Class<out Request>? = null
+    ) {
+        register("OPTIONS", path, action, middleware, name, requestType)
+    }
+
+    fun trace(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null,
+        requestType: Class<out Request>? = null
+    ) {
+        register("TRACE", path, action, middleware, name, requestType)
+    }
+
+    fun connect(
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null,
+        requestType: Class<out Request>? = null
+    ) {
+        register("CONNECT", path, action, middleware, name, requestType)
+    }
+
+    fun method(
+        method: String,
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String> = emptyList(),
+        name: String? = null,
+        requestType: Class<out Request>? = null
+    ) {
+        register(method, path, action, middleware, name, requestType)
+    }
+
+    private fun register(
+        method: String,
+        path: String,
+        action: (Map<String, String>) -> Any?,
+        middleware: List<String>,
+        name: String?,
+        requestType: Class<out Request>?
     ) {
         val normalized = normalizePath(path)
+        val normalizedMethod = method.trim().uppercase()
 
         if (!normalized.contains('{')) {
-            staticRoutes[normalized] = RegisteredRoute(
-                middleware = middleware,
-                name = name,
-                action = action
-            )
+            staticRoutes
+                .getOrPut(normalized) { linkedMapOf() }[normalizedMethod] =
+                RegisteredRoute(
+                    method = normalizedMethod,
+                    middleware = middleware,
+                    name = name,
+                    action = action
+                )
         } else {
-            compileDynamicRoute(normalized, action, middleware, name)
+            compileDynamicRoute(normalizedMethod, normalized, action, middleware, name)
         }
+
+        routeDefinitions.removeAll { definition ->
+            definition.method == normalizedMethod && definition.path == normalized
+        }
+        routeDefinitions += RouteDefinition(
+            scheme = scheme,
+            method = normalizedMethod,
+            path = normalized,
+            middleware = middleware,
+            name = name,
+            requestType = requestType
+        )
 
         if (!name.isNullOrBlank()) {
             namedRoutes[name] = NamedRoute(
@@ -58,6 +200,21 @@ open class SchemeRouter(
     }
 
     fun resolve(uriString: String): RouteResolution? {
+        return resolve("GET", uriString)
+    }
+
+    fun resolve(method: String, uriString: String): RouteResolution? {
+        val match = match(method, uriString) ?: return null
+        return RouteResolution(
+            scheme = match.scheme,
+            path = match.path,
+            params = match.params,
+            payload = match.action(match.params),
+            middleware = match.middleware
+        )
+    }
+
+    fun match(method: String, uriString: String): RouteMatch? {
         val uri = URI.create(uriString)
         if (!uri.scheme.equals(scheme, ignoreCase = true)) {
             return null
@@ -66,30 +223,36 @@ open class SchemeRouter(
         val path = buildPath(uri)
         val normalizedPath = normalizePath(path)
         val queryParams = extractQueryParams(uri)
+        val normalizedMethod = method.trim().uppercase()
 
-        staticRoutes[normalizedPath]?.let { route ->
-            return RouteResolution(
+        staticRoutes[normalizedPath]?.get(normalizedMethod)?.let { route ->
+            return RouteMatch(
                 scheme = scheme,
+                method = normalizedMethod,
                 path = normalizedPath,
                 params = queryParams,
-                payload = route.action(queryParams),
-                middleware = route.middleware
+                middleware = route.middleware,
+                action = route.action
             )
         }
 
         for (route in dynamicRoutes) {
+            if (route.method != normalizedMethod) {
+                continue
+            }
             val match = route.pattern.matchEntire(normalizedPath) ?: continue
             val params = queryParams.toMutableMap()
             route.paramNames.forEachIndexed { index, name ->
                 params[name] = match.groupValues[index + 1]
             }
 
-            return RouteResolution(
+            return RouteMatch(
                 scheme = scheme,
+                method = normalizedMethod,
                 path = normalizedPath,
                 params = params,
-                payload = route.action(params),
-                middleware = route.middleware
+                middleware = route.middleware,
+                action = route.action
             )
         }
 
@@ -97,6 +260,10 @@ open class SchemeRouter(
     }
 
     fun scheme(): String = scheme
+
+    fun routes(): List<RouteDefinition> {
+        return routeDefinitions.toList()
+    }
 
     fun pathFor(
         name: String,
@@ -148,6 +315,7 @@ open class SchemeRouter(
     }
 
     private fun compileDynamicRoute(
+        method: String,
         path: String,
         action: (Map<String, String>) -> Any?,
         middleware: List<String>,
@@ -160,6 +328,8 @@ open class SchemeRouter(
         }
 
         dynamicRoutes += CompiledRoute(
+            method = method,
+            path = path,
             pattern = Regex("^$regexString$"),
             paramNames = paramNames,
             middleware = middleware,

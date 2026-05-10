@@ -2,6 +2,7 @@ package kernel.providers
 
 import kernel.foundation.Application
 import kernel.foundation.DesktopKernel
+import kernel.foundation.HttpKernel
 import kernel.routing.ApiRouter
 import kernel.routing.ControllerRegistry
 import kernel.routing.DefaultDesktopViewDispatcher
@@ -36,6 +37,9 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
         val desktopViewDispatcher =
             app.config.get("services.routes.desktop.dispatcher") as? DesktopViewDispatcher
                 ?: DefaultDesktopViewDispatcher
+        val httpKernel =
+            app.config.get("services.http.kernel") as? HttpKernel
+                ?: HttpKernel(app)
         val desktopNavigator = DesktopNavigator(
             app = app,
             links = desktopLinks,
@@ -57,6 +61,7 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
         app.config.set("services.routes.desktop.dispatcher", desktopViewDispatcher)
         app.config.set("services.routes.desktop.navigator", desktopNavigator)
         app.config.set("services.routes.api.router", apiRouter)
+        app.config.set("services.http.kernel", httpKernel)
         app.config.set("services.routes.controllers", controllerRegistry)
 
         // Alias de compatibilidad mientras se migra el código viejo.

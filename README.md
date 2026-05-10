@@ -352,13 +352,13 @@ src/test/kotlin/kernel
 - [x] `ServiceProvider`.
 - [ ] `ConsoleKernel`.
 - [ ] Carga de `routes/console`.
-- [ ] `HttpKernel`.
+- [x] `HttpKernel`.
 - [ ] Router `web` y `api`.
 - [x] Router `desktop` y `api` para apps desktop internas.
-- [ ] Pipeline de middleware.
-- [ ] Base controller.
+- [x] Pipeline de middleware.
+- [x] Base controller.
 - [ ] Render de vistas.
-- [ ] Requests y validacion.
+- [x] Requests y validacion.
 
 ## Reglas Del Kernel
 
@@ -386,6 +386,29 @@ En otras palabras:
 
 - solo `desktop` reacciona a links externos y a segunda instancia;
 - `api` existe como router interno, no como protocolo publico del SO.
+
+## Requests y Validacion
+
+La capa HTTP del kernel ya incluye:
+
+- `Request`
+- `FormRequest`
+- `HttpKernel`
+- `ExceptionHandler`
+- middlewares HTTP
+- validacion automatica antes del controlador
+
+Guia detallada:
+
+- [docs/request.md](./docs/request.md)
+
+Esa guia cubre:
+
+- helpers disponibles en `Request`
+- uso de archivos subidos
+- reglas disponibles en `FormRequest`
+- `safe()`, `validated()` y `validatedTyped()`
+- ejemplos en middleware y controlador
 
 ## Que Debe Repetirse En Cualquier App
 

@@ -45,7 +45,8 @@ abstract class Model {
 abstract class ModelDefinition<M : Model>(
     private val tableName: String? = null,
     private val mapper: (ResultSet) -> M,
-    private val connectionName: String? = null
+    private val connectionName: String? = null,
+    private val primaryKey: String = "id"
 ) {
     fun query(): QueryBuilder<M> {
         return QueryBuilder(
@@ -60,6 +61,12 @@ abstract class ModelDefinition<M : Model>(
     }
 
     suspend fun all(): List<M> = query().get()
+
+    open suspend fun find(id: Any?): M? {
+        return query()
+            .where(primaryKey, "=", id)
+            .first()
+    }
 
     private fun inferModelSimpleName(): String {
         return javaClass.enclosingClass?.simpleName
