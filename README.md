@@ -410,6 +410,32 @@ Esa guia cubre:
 - `safe()`, `validated()` y `validatedTyped()`
 - ejemplos en middleware y controlador
 
+## Localizacion
+
+La capa de i18n del kernel ya incluye:
+
+- `LangFile`
+- `LangStore`
+- helpers globales:
+  - `lang(...)`
+  - `trans(...)`
+  - `` `__`(...) ``
+- deteccion de locale desde `Accept-Language`
+- integracion nativa con `FormRequest`
+
+Guia detallada:
+
+- [docs/lang.md](./docs/lang.md)
+
+Esa guia cubre:
+
+- como definir archivos de idioma en Kotlin
+- como cargarlos en `Application`
+- como usar catálogos para que no crezcan los providers
+- como traducir con reemplazos dinamicos
+- como funciona el locale por request
+- como resuelve mensajes de validacion por defecto
+
 ## Que Debe Repetirse En Cualquier App
 
 El kernel funcionara mejor si toda app consumidora repite estas piezas:
