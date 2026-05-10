@@ -85,32 +85,80 @@ abstract class FormRequest(
     ) {
         when (rule.name) {
             "required" -> if (value.isNullOrBlank()) {
-                errors.error(field, formatMessage(field, rule.name, "El campo `${displayName(field)}` es obligatorio."))
+                errors.error(
+                    field,
+                    formatMessage(
+                        field,
+                        rule.name,
+                        replacements = mapOf("attribute" to displayName(field)),
+                        fallback = "El campo `${displayName(field)}` es obligatorio."
+                    )
+                )
             }
 
             "email" -> if (!value.isNullOrBlank() && !EMAIL_PATTERN.matches(value)) {
-                errors.error(field, formatMessage(field, rule.name, "El campo `${displayName(field)}` debe ser un email valido."))
+                errors.error(
+                    field,
+                    formatMessage(
+                        field,
+                        rule.name,
+                        replacements = mapOf("attribute" to displayName(field)),
+                        fallback = "El campo `${displayName(field)}` debe ser un email valido."
+                    )
+                )
             }
 
             "integer" -> if (!value.isNullOrBlank() && value.toIntOrNull() == null) {
-                errors.error(field, formatMessage(field, rule.name, "El campo `${displayName(field)}` debe ser un entero."))
+                errors.error(
+                    field,
+                    formatMessage(
+                        field,
+                        rule.name,
+                        replacements = mapOf("attribute" to displayName(field)),
+                        fallback = "El campo `${displayName(field)}` debe ser un entero."
+                    )
+                )
             }
 
             "numeric" -> if (!value.isNullOrBlank() && value.toDoubleOrNull() == null) {
-                errors.error(field, formatMessage(field, rule.name, "El campo `${displayName(field)}` debe ser numerico."))
+                errors.error(
+                    field,
+                    formatMessage(
+                        field,
+                        rule.name,
+                        replacements = mapOf("attribute" to displayName(field)),
+                        fallback = "El campo `${displayName(field)}` debe ser numerico."
+                    )
+                )
             }
 
             "min" -> {
                 val limit = rule.arguments.firstOrNull()?.toIntOrNull() ?: return
                 if ((value ?: "").length < limit) {
-                    errors.error(field, formatMessage(field, rule.name, "El campo `${displayName(field)}` debe tener al menos $limit caracteres."))
+                    errors.error(
+                        field,
+                        formatMessage(
+                            field,
+                            rule.name,
+                            replacements = mapOf("attribute" to displayName(field), "min" to limit),
+                            fallback = "El campo `${displayName(field)}` debe tener al menos $limit caracteres."
+                        )
+                    )
                 }
             }
 
             "max" -> {
                 val limit = rule.arguments.firstOrNull()?.toIntOrNull() ?: return
                 if ((value ?: "").length > limit) {
-                    errors.error(field, formatMessage(field, rule.name, "El campo `${displayName(field)}` no puede tener mas de $limit caracteres."))
+                    errors.error(
+                        field,
+                        formatMessage(
+                            field,
+                            rule.name,
+                            replacements = mapOf("attribute" to displayName(field), "max" to limit),
+                            fallback = "El campo `${displayName(field)}` no puede tener mas de $limit caracteres."
+                        )
+                    )
                 }
             }
 
@@ -127,11 +175,27 @@ abstract class FormRequest(
             }
 
             "boolean" -> if (!value.isNullOrBlank() && parseBoolean(value) == null) {
-                errors.error(field, formatMessage(field, rule.name, "El campo `${displayName(field)}` debe ser booleano."))
+                errors.error(
+                    field,
+                    formatMessage(
+                        field,
+                        rule.name,
+                        replacements = mapOf("attribute" to displayName(field)),
+                        fallback = "El campo `${displayName(field)}` debe ser booleano."
+                    )
+                )
             }
 
             "file" -> if (file(field) == null) {
-                errors.error(field, formatMessage(field, rule.name, "El archivo `${displayName(field)}` es obligatorio."))
+                errors.error(
+                    field,
+                    formatMessage(
+                        field,
+                        rule.name,
+                        replacements = mapOf("attribute" to displayName(field)),
+                        fallback = "El archivo `${displayName(field)}` es obligatorio."
+                    )
+                )
             }
 
             "extensions", "mimes" -> {
@@ -143,7 +207,11 @@ abstract class FormRequest(
                         formatMessage(
                             field,
                             rule.name,
-                            "El archivo `${displayName(field)}` debe tener una extension valida: ${allowed.joinToString(", ")}."
+                            replacements = mapOf(
+                                "attribute" to displayName(field),
+                                "values" to allowed.joinToString(", ")
+                            ),
+                            fallback = "El archivo `${displayName(field)}` debe tener una extension valida: ${allowed.joinToString(", ")}."
                         )
                     )
                 }
@@ -153,7 +221,15 @@ abstract class FormRequest(
                 val uploadedFile = file(field) ?: return
                 val limitKb = rule.arguments.firstOrNull()?.toLongOrNull() ?: return
                 if (uploadedFile.size > limitKb * 1024) {
-                    errors.error(field, formatMessage(field, rule.name, "El archivo `${displayName(field)}` no puede exceder ${limitKb}KB."))
+                    errors.error(
+                        field,
+                        formatMessage(
+                            field,
+                            rule.name,
+                            replacements = mapOf("attribute" to displayName(field), "max" to limitKb),
+                            fallback = "El archivo `${displayName(field)}` no puede exceder ${limitKb}KB."
+                        )
+                    )
                 }
             }
 
@@ -161,7 +237,15 @@ abstract class FormRequest(
                 val uploadedFile = file(field) ?: return
                 val limitKb = rule.arguments.firstOrNull()?.toLongOrNull() ?: return
                 if (uploadedFile.size < limitKb * 1024) {
-                    errors.error(field, formatMessage(field, rule.name, "El archivo `${displayName(field)}` debe medir al menos ${limitKb}KB."))
+                    errors.error(
+                        field,
+                        formatMessage(
+                            field,
+                            rule.name,
+                            replacements = mapOf("attribute" to displayName(field), "min" to limitKb),
+                            fallback = "El archivo `${displayName(field)}` debe medir al menos ${limitKb}KB."
+                        )
+                    )
                 }
             }
         }
@@ -198,7 +282,15 @@ abstract class FormRequest(
         }
 
         if (exists) {
-            errors.error(field, formatMessage(field, rule.name, "El valor del campo `${displayName(field)}` ya existe."))
+            errors.error(
+                field,
+                formatMessage(
+                    field,
+                    rule.name,
+                    replacements = mapOf("attribute" to displayName(field)),
+                    fallback = "El valor del campo `${displayName(field)}` ya existe."
+                )
+            )
         }
     }
 
@@ -233,7 +325,15 @@ abstract class FormRequest(
         }
 
         if (!exists) {
-            errors.error(field, formatMessage(field, rule.name, "El valor del campo `${displayName(field)}` no existe."))
+            errors.error(
+                field,
+                formatMessage(
+                    field,
+                    rule.name,
+                    replacements = mapOf("attribute" to displayName(field)),
+                    fallback = "El valor del campo `${displayName(field)}` no existe."
+                )
+            )
         }
     }
 
@@ -259,13 +359,44 @@ abstract class FormRequest(
     }
 
     private fun displayName(field: String): String {
-        return validationAttributes()[field]?.trim()?.takeIf(String::isNotBlank) ?: field
+        return validationAttributes()[field]?.trim()?.takeIf(String::isNotBlank)
+            ?: translate(
+                key = "validation.attributes.$field",
+                default = field
+            )
     }
 
-    private fun formatMessage(field: String, rule: String, fallback: String): String {
+    private fun formatMessage(
+        field: String,
+        rule: String,
+        replacements: Map<String, Any?> = emptyMap(),
+        fallback: String
+    ): String {
         return messages()["$field.$rule"]?.trim()?.takeIf(String::isNotBlank)
             ?: messages()[field]?.trim()?.takeIf(String::isNotBlank)
-            ?: fallback
+            ?: translate(
+                key = "validation.custom.$field.$rule",
+                replacements = replacements,
+                default = translate(
+                    key = "validation.$rule",
+                    replacements = replacements,
+                    default = fallback
+                )
+            )
+    }
+
+    private fun translate(
+        key: String,
+        replacements: Map<String, Any?> = emptyMap(),
+        default: String
+    ): String {
+        return app.lang.translate(
+            key = key,
+            locale = locale() ?: "en",
+            replacements = replacements,
+            fallbackLocale = app.config.string("app.fallback_locale", "en"),
+            default = default
+        )
     }
 
     private fun castValue(field: String, value: String): Any? {

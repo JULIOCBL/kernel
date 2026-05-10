@@ -129,6 +129,23 @@ class RequestTest {
     }
 
     @Test
+    fun `request exposes locale from attributes or app config`() {
+        val app = Application(Paths.get(".")).apply {
+            config.set("app.locale", "es")
+        }
+        val request = Request(
+            app = app,
+            method = "GET",
+            target = "api://profile",
+            path = "/profile"
+        )
+
+        assertEquals("es", request.locale())
+        request.setLocale("en")
+        assertEquals("en", request.locale())
+    }
+
+    @Test
     fun `uploaded file can be stored using the request storage root`() {
         val root = createTempDirectory("request-upload-storage")
         val uploadedFile = UploadedFile(

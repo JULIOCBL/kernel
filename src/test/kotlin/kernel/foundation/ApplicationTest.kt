@@ -4,6 +4,7 @@ import kernel.config.ConfigFile
 import kernel.config.MapConfigLoader
 import kernel.env.Env
 import kernel.env.env
+import kernel.lang.LangFile
 import kernel.providers.ProviderFactory
 import kernel.providers.ServiceProvider
 import kernel.providers.providerFactory
@@ -69,6 +70,25 @@ class ApplicationTest {
         assertEquals("Kernel Test App", application.config("app.name"))
         assertEquals(true, application.config("app.debug"))
         assertEquals("fallback", application.config("missing.key", "fallback"))
+    }
+
+    @Test
+    fun `loads config and lang files from iterable catalogs`() {
+        val basePath = createTempDirectory("kernel-config-lang-catalog-test").toAbsolutePath()
+        val application = Application.bootstrap(basePath = basePath, systemValues = emptyMap())
+
+        application.loadConfig(listOf(AppConfigFile, FeaturesConfigFile))
+        application.loadLang(listOf(ValidationLangFile))
+
+        assertEquals("Kernel Test App", application.config.string("app.name"))
+        assertEquals(
+            "El campo nombre es obligatorio.",
+            application.lang.translate(
+                key = "validation.required",
+                locale = "es",
+                replacements = mapOf("attribute" to "nombre")
+            )
+        )
     }
 
     @Test
@@ -319,6 +339,17 @@ class ApplicationTest {
             return mapOf(
                 "console" to true,
                 "migrations" to env.bool("ENABLE_MIGRATIONS", true)
+            )
+        }
+    }
+
+    private object ValidationLangFile : LangFile {
+        override val locale: String = "es"
+        override val namespace: String = "validation"
+
+        override fun load(): Map<String, Any?> {
+            return mapOf(
+                "required" to "El campo :attribute es obligatorio."
             )
         }
     }

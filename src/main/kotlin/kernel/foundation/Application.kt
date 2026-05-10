@@ -5,6 +5,8 @@ import kernel.config.ConfigFile
 import kernel.config.ConfigStore
 import kernel.env.Env
 import kernel.env.EnvLoader
+import kernel.lang.LangFile
+import kernel.lang.LangStore
 import kernel.providers.ProviderFactory
 import kernel.providers.ServiceProvider
 import java.nio.file.Path
@@ -20,7 +22,8 @@ import kotlin.reflect.KClass
 class Application(
     val basePath: Path,
     val env: Env = Env(),
-    val config: ConfigStore = ConfigStore()
+    val config: ConfigStore = ConfigStore(),
+    val lang: LangStore = LangStore()
 ) {
     private val providersByType = linkedMapOf<KClass<out ServiceProvider>, ServiceProvider>()
     private var booted: Boolean = false
@@ -94,7 +97,40 @@ class Application(
      * Carga multiples archivos de configuracion respetando el orden recibido.
      */
     fun loadConfig(vararg files: ConfigFile): Application {
-        files.forEach(::loadConfig)
+        files.forEach { file -> loadConfig(file) }
+        return this
+    }
+
+    /**
+     * Carga una coleccion de archivos de configuracion respetando el orden
+     * recibido.
+     */
+    fun loadConfig(files: Iterable<ConfigFile>): Application {
+        files.forEach { file -> loadConfig(file) }
+        return this
+    }
+
+    /**
+     * Carga un archivo de idioma definido como codigo Kotlin.
+     */
+    fun loadLang(file: LangFile): Application {
+        lang.load(file)
+        return this
+    }
+
+    /**
+     * Carga multiples archivos de idioma respetando el orden recibido.
+     */
+    fun loadLang(vararg files: LangFile): Application {
+        files.forEach { file -> loadLang(file) }
+        return this
+    }
+
+    /**
+     * Carga una coleccion de archivos de idioma respetando el orden recibido.
+     */
+    fun loadLang(files: Iterable<LangFile>): Application {
+        files.forEach { file -> loadLang(file) }
         return this
     }
 

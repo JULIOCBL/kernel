@@ -470,6 +470,13 @@ open class Request(
 
     fun setUser(user: Any?): Request = setAttribute("user", user)
 
+    fun locale(default: String? = null): String? {
+        return attribute<String>("locale")
+            ?: app.config.string("app.locale", default.orEmpty()).ifBlank { default }
+    }
+
+    fun setLocale(locale: String): Request = setAttribute("locale", locale)
+
     @Suppress("UNCHECKED_CAST")
     fun <T> attribute(key: String): T? = mutableAttributes[key] as? T
 

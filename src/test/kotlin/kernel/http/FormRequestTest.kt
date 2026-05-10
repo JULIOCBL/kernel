@@ -1,6 +1,7 @@
 package kernel.http
 
 import kernel.foundation.Application
+import kernel.lang.LangFile
 import java.nio.file.Paths
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -130,6 +131,34 @@ class FormRequestTest {
             error.errors["name"]
         )
     }
+
+    @Test
+    fun `form request resolves default validation messages from lang store`() {
+        val app = Application(Paths.get(".")).apply {
+            loadLang(SampleValidationEn)
+            config.set("app.locale", "en")
+            config.set("app.fallback_locale", "en")
+        }
+        val request = Request(
+            app = app,
+            method = "POST",
+            target = "api://users",
+            path = "/users",
+            body = mapOf("name" to "")
+        )
+
+        val error = assertFailsWith<ValidationException> {
+            SampleCreateUserRequest(request).validateResolved()
+        }
+
+        assertEquals(
+            listOf(
+                "The name field is required.",
+                "The name field must be at least 3 characters."
+            ),
+            error.errors["name"]
+        )
+    }
 }
 
 private class SampleCreateUserRequest(
@@ -207,6 +236,19 @@ private class SampleCustomMessageRequest(
     override fun messages(): Map<String, String> {
         return mapOf(
             "name.required" to "Debes capturar el nombre completo del usuario."
+        )
+    }
+}
+
+private object SampleValidationEn : LangFile {
+    override val locale: String = "en"
+    override val namespace: String = "validation"
+
+    override fun load(): Map<String, Any?> {
+        return mapOf(
+            "required" to "The :attribute field is required.",
+            "min" to "The :attribute field must be at least :min characters.",
+            "attributes" to mapOf("name" to "name")
         )
     }
 }

@@ -2,6 +2,7 @@ package kernel.foundation
 
 import kernel.http.JsonResponse
 import kernel.http.HttpMiddleware
+import kernel.http.HttpRequestRuntime
 import kernel.http.Request
 import kernel.routing.ApiRouter
 import java.nio.file.Paths
@@ -102,4 +103,46 @@ class HttpKernelTest {
             events
         )
     }
+
+    @Test
+    fun `http kernel resolves locale from accept language header`() {
+        val app = Application(Paths.get(".")).apply {
+            config.set("app.locale", "en")
+            loadLang(TestSpanishValidationLang)
+        }
+        val kernel = HttpKernel(app)
+        val router = ApiRouter("api").also { routed ->
+            routed.get(
+                path = "locale",
+                action = {
+                JsonResponse(
+                    payload = mapOf(
+                        "locale" to HttpRequestRuntime.current().locale().orEmpty()
+                    ),
+                    status = 200
+                )
+                }
+            )
+        }
+
+        val response = kernel.handle(
+            request = Request(
+                app = app,
+                method = "GET",
+                target = "api://locale",
+                path = "/locale",
+                headers = mapOf("Accept-Language" to "es-MX,es;q=0.9,en;q=0.8")
+            ),
+            router = router
+        ) as JsonResponse
+
+        assertEquals("es", (response.payload as Map<*, *>)["locale"])
+    }
+}
+
+private object TestSpanishValidationLang : kernel.lang.LangFile {
+    override val locale: String = "es"
+    override val namespace: String = "validation"
+
+    override fun load(): Map<String, Any?> = mapOf("required" to "El campo :attribute es obligatorio.")
 }
