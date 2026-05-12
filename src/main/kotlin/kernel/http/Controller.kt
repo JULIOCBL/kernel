@@ -7,4 +7,16 @@ abstract class Controller {
     ): JsonResponse {
         return JsonResponse(payload = payload, status = status)
     }
+
+    protected fun text(
+        content: String,
+        status: Int = 200,
+        contentType: String = "text/plain; charset=UTF-8"
+    ): TextResponse {
+        return TextResponse(
+            content = content,
+            status = status,
+            contentType = contentType
+        )
+    }
 }
