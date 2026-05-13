@@ -56,11 +56,11 @@ class FormRequestTest {
         val validated = formRequest.validatedTyped()
 
         assertIs<Int>(validated.getValue("age"))
-        assertEquals(34, validated.getValue("age"))
+        assertEquals(34, validated.int("age"))
         assertIs<Boolean>(validated.getValue("active"))
-        assertEquals(true, validated.getValue("active"))
+        assertEquals(true, validated.boolean("active"))
         assertIs<Double>(validated.getValue("amount"))
-        assertEquals(19.75, validated.getValue("amount"))
+        assertEquals(19.75, validated.double("amount"))
     }
 
     @Test
@@ -99,16 +99,19 @@ class FormRequestTest {
             path = "/users",
             body = mapOf(
                 "name" to "  ada  ",
-                "active" to "yes"
+                "active" to "yes",
+                "role" to "SUPERADMIN"
             )
         )
 
         val formRequest = SampleLifecycleRequest(request)
         formRequest.validateResolved()
 
-        assertEquals("ADA", formRequest.validated().getValue("name"))
-        assertEquals(true, formRequest.validatedTyped().getValue("active"))
+        assertEquals("ADA", formRequest.validated().string("name"))
+        assertEquals(false, formRequest.validated().has("role"))
+        assertEquals(true, formRequest.validatedTyped().boolean("active"))
         assertEquals(mapOf("name" to "ADA"), formRequest.safe().only("name"))
+        assertEquals(false, formRequest.safe().has("role"))
         assertTrue(formRequest.hookTriggered)
     }
 

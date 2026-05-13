@@ -41,10 +41,22 @@ open class ExceptionHandler {
             else -> JsonResponse(
                 payload = mapOf(
                     "status" to "error",
-                    "message" to (error.message ?: "Fallo interno al procesar la petición API.")
+                    "message" to internalErrorMessage(request, error)
                 ),
                 status = 500
             )
+        }
+    }
+
+    protected open fun internalErrorMessage(
+        request: Request,
+        error: Throwable
+    ): String {
+        val debugEnabled = request.app.config.bool("app.debug", false)
+        return if (debugEnabled) {
+            error.message ?: "Fallo interno al procesar la petición API."
+        } else {
+            "Fallo interno al procesar la petición API."
         }
     }
 }

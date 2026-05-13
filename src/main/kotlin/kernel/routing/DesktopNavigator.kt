@@ -55,15 +55,22 @@ class DesktopNavigator(
         }
 
         val target = if (links.matches(pathOrUri)) pathOrUri else links.desktop(pathOrUri)
-        val resolution = router.resolve(target) ?: return null
+        val match = router.match("GET", target) ?: return null
+        val provisionalResolution = RouteResolution(
+            scheme = match.scheme,
+            path = match.path,
+            params = match.params,
+            payload = null,
+            middleware = match.middleware
+        )
         val request = DesktopRequest(
             app = app,
-            routeName = resolution.path,
+            routeName = provisionalResolution.path,
             target = target,
-            params = resolution.params,
-            resolution = resolution
+            params = provisionalResolution.params,
+            resolution = provisionalResolution
         )
-        val response = desktopKernel.handle(request, resolution.middleware)
+        val response = desktopKernel.handle(request, provisionalResolution.middleware)
 
         when (response) {
             is DesktopResponse.Success -> {
@@ -81,6 +88,13 @@ class DesktopNavigator(
             }
         }
 
+        val resolution = RouteResolution(
+            scheme = provisionalResolution.scheme,
+            path = provisionalResolution.path,
+            params = provisionalResolution.params,
+            payload = match.action(match.params),
+            middleware = provisionalResolution.middleware
+        )
         val view = viewDispatcher.dispatch(resolution) ?: return null
         routeState.update(resolution)
         viewState.update(view)

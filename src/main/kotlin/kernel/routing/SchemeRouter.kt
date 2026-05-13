@@ -290,6 +290,10 @@ open class SchemeRouter(
         }
     }
 
+    fun hasNamedRoute(name: String): Boolean {
+        return namedRoutes.containsKey(name)
+    }
+
     private fun buildPath(uri: URI): String {
         return (uri.authority ?: "") + (uri.path ?: "")
     }

@@ -114,6 +114,34 @@ class RouteFacadeTest {
     }
 
     @Test
+    fun `route helpers can resolve both desktop and api named routes`() {
+        ApplicationRuntime.resetForTests()
+        val app = Application.bootstrap(createTempDirectory("kernel-routing-test")).initializeRuntime()
+        val desktopRouter = DesktopRouter("desk")
+        val apiRouter = ApiRouter("api")
+        app.config.set("services.routes.desktop.router", desktopRouter)
+        app.config.set("services.routes.desktop.links", LinkGenerator("desk"))
+        app.config.set("services.routes.api.router", apiRouter)
+        app.config.set("services.routes.controllers", ControllerRegistry())
+
+        Route.withRouter(desktopRouter) {
+            Route.get("dashboard/{id}")
+                .name("dashboard.show")
+                .action { params -> params["id"] ?: "0" }
+        }
+        Route.withRouter(apiRouter) {
+            Route.get("users/{id}")
+                .name("users.show")
+                .action { params -> params["id"] ?: "0" }
+        }
+
+        assertEquals("desk:///dashboard/42", Route.desktopRoute("dashboard.show", mapOf("id" to "42")))
+        assertEquals("/users/7", Route.apiRoute("users.show", mapOf("id" to "7")))
+        assertEquals("desk:///dashboard/42", Route.route("dashboard.show", mapOf("id" to "42")))
+        assertEquals("/users/7", Route.route("users.show", mapOf("id" to "7")))
+    }
+
+    @Test
     fun `facade supports prefix and middleware groups`() {
         ApplicationRuntime.resetForTests()
         val app = Application.bootstrap(createTempDirectory("kernel-routing-test")).initializeRuntime()

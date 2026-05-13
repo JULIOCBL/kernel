@@ -1,6 +1,7 @@
 package kernel.http
 
 import kernel.foundation.Application
+import kotlinx.coroutines.runBlocking
 import java.nio.file.Paths
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
@@ -143,6 +144,20 @@ class RequestTest {
         assertEquals("es", request.locale())
         request.setLocale("en")
         assertEquals("en", request.locale())
+    }
+
+    @Test
+    fun `http request runtime keeps the active request inside coroutine context`() = runBlocking {
+        val request = Request(
+            app = Application(Paths.get(".")),
+            method = "GET",
+            target = "api://profile",
+            path = "/profile"
+        )
+
+        HttpRequestRuntime.withRequestContext(request) {
+            assertEquals(request, HttpRequestRuntime.current())
+        }
     }
 
     @Test

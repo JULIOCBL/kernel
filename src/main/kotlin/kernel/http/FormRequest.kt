@@ -20,8 +20,8 @@ abstract class FormRequest(
     remoteAddress = request.remoteAddress,
     attributes = request.attributes()
 ) {
-    private var validatedPayload: Map<String, String>? = null
-    private var validatedTypedPayload: Map<String, Any?>? = null
+    private var validatedPayload: ValidatedInput? = null
+    private var validatedTypedPayload: ValidatedInput? = null
 
     open fun authorize(): Boolean = true
 
@@ -37,17 +37,15 @@ abstract class FormRequest(
 
     open fun passedValidation() {}
 
-    fun validated(): Map<String, String> {
-        return validatedPayload ?: all()
+    fun validated(): ValidatedInput {
+        return validatedPayload ?: ValidatedInput(emptyMap())
     }
 
-    fun validatedTyped(): Map<String, Any?> {
-        return validatedTypedPayload ?: validated().mapValues { (field, value) ->
-            castValue(field, value)
-        }
+    fun validatedTyped(): ValidatedInput {
+        return validatedTypedPayload ?: ValidatedInput(emptyMap())
     }
 
-    fun safe(): ValidatedInput = ValidatedInput(validatedTyped())
+    fun safe(): ValidatedInput = validatedTyped()
 
     internal fun validateResolved() {
         prepareForValidation()
@@ -58,11 +56,17 @@ abstract class FormRequest(
 
         val errors = linkedMapOf<String, MutableList<String>>()
         val payload = all()
+        val validatedValues = linkedMapOf<String, Any?>()
 
         rules().forEach { (field, definition) ->
             val value = payload[field]
             parseRules(definition).forEach { rule ->
                 validateRule(field, value, rule, errors)
+            }
+
+            when {
+                file(field) != null -> validatedValues[field] = file(field)
+                payload.containsKey(field) -> validatedValues[field] = value
             }
         }
 
@@ -70,10 +74,15 @@ abstract class FormRequest(
             throw ValidationException(errors.mapValues { it.value.toList() })
         }
 
-        validatedPayload = payload
-        validatedTypedPayload = payload.mapValues { (field, value) ->
-            castValue(field, value)
-        }
+        validatedPayload = ValidatedInput(validatedValues)
+        validatedTypedPayload = ValidatedInput(
+            validatedValues.mapValues { (field, value) ->
+                when (value) {
+                    is String -> castValue(field, value)
+                    else -> value
+                }
+            }
+        )
         passedValidation()
     }
 

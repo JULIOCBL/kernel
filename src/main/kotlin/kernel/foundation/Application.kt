@@ -213,7 +213,7 @@ class Application(
      * Registra una coleccion de factories de providers.
      */
     fun registerAll(factories: Iterable<ProviderFactory>): Application {
-        factories.forEach(::register)
+        factories.forEach { factory -> register(factory) }
         return this
     }
 
@@ -248,16 +248,22 @@ class Application(
         fun bootstrap(
             basePath: Path,
             environmentFile: String = ".env",
-            systemValues: Map<String, String> = System.getenv()
+            systemValues: Map<String, String> = System.getenv(),
+            processLockMode: ProcessLockMode = ProcessLockMode.ENFORCE
         ): Application {
             val normalizedBasePath = basePath.toAbsolutePath().normalize()
+            val processId = ApplicationProcessLock.acquire(normalizedBasePath, processLockMode)
             val loadedEnvironment = EnvLoader(normalizedBasePath.resolve(environmentFile)).load()
 
             return Application(
                 basePath = normalizedBasePath,
                 env = Env(loadedEnvironment, systemValues),
                 config = ConfigStore()
-            )
+            ).apply {
+                config.set("runtime.process.pid", processId)
+                config.set("runtime.process.pid_file", ApplicationProcessLock.pidFile(normalizedBasePath).toString())
+                config.set("runtime.process.lock_mode", processLockMode.name.lowercase())
+            }
         }
 
         /**
@@ -274,12 +280,14 @@ class Application(
         fun bootstrapRuntime(
             basePath: Path,
             environmentFile: String = ".env",
-            systemValues: Map<String, String> = System.getenv()
+            systemValues: Map<String, String> = System.getenv(),
+            processLockMode: ProcessLockMode = ProcessLockMode.ENFORCE
         ): Application {
             return bootstrap(
                 basePath = basePath,
                 environmentFile = environmentFile,
-                systemValues = systemValues
+                systemValues = systemValues,
+                processLockMode = processLockMode
             ).initializeRuntime()
         }
     }

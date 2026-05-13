@@ -356,11 +356,47 @@ object Route {
         name: String,
         params: Map<String, String> = emptyMap()
     ): String {
+        val desktopRouter = runCatching { desktop() }.getOrNull()
+        val apiRouter = runCatching { api() }.getOrNull()
+        val currentRequestScheme = runCatching {
+            kernel.http.HttpRequestRuntime.current().target.substringBefore("://")
+        }.getOrNull()?.lowercase()
+
+        if (currentRequestScheme == apiRouter?.scheme()?.lowercase() && apiRouter?.hasNamedRoute(name) == true) {
+            return apiRoute(name, params)
+        }
+
+        if (currentRequestScheme == desktopRouter?.scheme()?.lowercase() && desktopRouter?.hasNamedRoute(name) == true) {
+            return desktopRoute(name, params)
+        }
+
+        if (desktopRouter?.hasNamedRoute(name) == true) {
+            return desktopRoute(name, params)
+        }
+
+        if (apiRouter?.hasNamedRoute(name) == true) {
+            return apiRoute(name, params)
+        }
+
+        error("No existe una ruta nombrada `$name` ni en desktop ni en api.")
+    }
+
+    fun desktopRoute(
+        name: String,
+        params: Map<String, String> = emptyMap()
+    ): String {
         val app = ApplicationRuntime.current()
         val links = app.config.get("services.routes.desktop.links") as? LinkGenerator
             ?: error("LinkGenerator no esta registrado en services.routes.desktop.links.")
 
         return links.desktop(desktop().pathFor(name, params))
+    }
+
+    fun apiRoute(
+        name: String,
+        params: Map<String, String> = emptyMap()
+    ): String {
+        return api().pathFor(name, params)
     }
 
     internal fun withRouter(router: SchemeRouter, block: () -> Unit) {

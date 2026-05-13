@@ -6,6 +6,7 @@ import kernel.env.Env
 import kernel.lang.LangFile
 import kernel.providers.ProviderFactory
 import kernel.providers.ServiceProvider
+import java.nio.file.Files
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
 import kotlin.test.BeforeTest
@@ -19,6 +20,7 @@ class ApplicationTest {
     @BeforeTest
     fun resetRuntime() {
         ApplicationRuntime.resetForTests()
+        ApplicationProcessLock.resetForTests()
         ConstructorProbeProvider.constructorCalls = 0
     }
 
@@ -41,6 +43,51 @@ class ApplicationTest {
         assertEquals("testing", application.environment())
         assertEquals("Kernel Test", application.env.string("APP_NAME"))
         assertEquals(basePath.resolve("config").normalize(), application.path("config"))
+        assertEquals(ProcessHandle.current().pid(), application.config.get("runtime.process.pid"))
+        assertTrue(Files.exists(basePath.resolve(".pid")))
+    }
+
+    @Test
+    fun `bootstrap blocks when another live process already owns the base path`() {
+        val basePath = createTempDirectory("kernel-process-lock-test").toAbsolutePath()
+        val blocker = ProcessBuilder("sleep", "5").start()
+        basePath.resolve(".pid").writeText(blocker.pid().toString())
+
+        try {
+            val error = assertFailsWith<IllegalStateException> {
+                Application.bootstrap(
+                    basePath = basePath,
+                    systemValues = emptyMap(),
+                    processLockMode = ProcessLockMode.ENFORCE
+                )
+            }
+
+            assertTrue(error.message!!.contains("instancia activa"))
+        } finally {
+            blocker.destroyForcibly()
+            ApplicationProcessLock.clear(basePath)
+        }
+    }
+
+    @Test
+    fun `bootstrap can observe without claiming the process lock`() {
+        val basePath = createTempDirectory("kernel-process-observe-test").toAbsolutePath()
+        val blocker = ProcessBuilder("sleep", "5").start()
+        basePath.resolve(".pid").writeText(blocker.pid().toString())
+
+        try {
+            val application = Application.bootstrap(
+                basePath = basePath,
+                systemValues = emptyMap(),
+                processLockMode = ProcessLockMode.OBSERVE
+            )
+
+            assertEquals(blocker.pid(), ApplicationProcessLock.readPid(basePath))
+            assertEquals(ProcessLockMode.OBSERVE.name.lowercase(), application.config.string("runtime.process.lock_mode"))
+        } finally {
+            blocker.destroyForcibly()
+            ApplicationProcessLock.clear(basePath)
+        }
     }
 
     @Test

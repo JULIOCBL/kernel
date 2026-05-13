@@ -138,6 +138,51 @@ class HttpKernelTest {
 
         assertEquals("es", (response.payload as Map<*, *>)["locale"])
     }
+
+    @Test
+    fun `exception handler hides internal 500 messages when debug is disabled`() {
+        val app = Application(Paths.get(".")).apply {
+            config.set("app.debug", false)
+        }
+        val request = Request(
+            app = app,
+            method = "GET",
+            target = "api://boom",
+            path = "/boom"
+        )
+
+        val response = HttpKernel(app).renderException(
+            request = request,
+            error = IllegalStateException("detalle interno sensible")
+        ) as JsonResponse
+
+        assertEquals(500, response.status)
+        assertEquals(
+            "Fallo interno al procesar la petición API.",
+            (response.payload as Map<*, *>)["message"]
+        )
+    }
+
+    @Test
+    fun `exception handler can expose 500 messages when debug is enabled`() {
+        val app = Application(Paths.get(".")).apply {
+            config.set("app.debug", true)
+        }
+        val request = Request(
+            app = app,
+            method = "GET",
+            target = "api://boom",
+            path = "/boom"
+        )
+
+        val response = HttpKernel(app).renderException(
+            request = request,
+            error = IllegalStateException("detalle interno sensible")
+        ) as JsonResponse
+
+        assertEquals(500, response.status)
+        assertEquals("detalle interno sensible", (response.payload as Map<*, *>)["message"])
+    }
 }
 
 private object TestSpanishValidationLang : kernel.lang.LangFile {

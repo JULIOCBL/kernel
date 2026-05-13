@@ -29,3 +29,8 @@ bin/
 # Temporary files
 *.tmp
 *.temp
+
+# Runtime state
+.pid
+*.pid
+storage/runtime/

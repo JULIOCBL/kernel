@@ -92,7 +92,10 @@ private object DebugOutput {
                 .findFirst()
                 .orElse(null)
         }?.let { caller ->
-            "${caller.className}  ${caller.fileName}:${caller.lineNumber}"
+            val simpleClassName = caller.className.substringAfterLast('.')
+            val methodName = caller.methodName
+
+            "$simpleClassName.$methodName()  ${caller.fileName}:${caller.lineNumber}"
         }
     }
 

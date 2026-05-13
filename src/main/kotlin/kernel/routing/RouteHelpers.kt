@@ -9,6 +9,20 @@ fun route(
     return Route.route(name, params)
 }
 
+fun desktopRoute(
+    name: String,
+    params: Map<String, String> = emptyMap()
+): String {
+    return Route.desktopRoute(name, params)
+}
+
+fun apiRoute(
+    name: String,
+    params: Map<String, String> = emptyMap()
+): String {
+    return Route.apiRoute(name, params)
+}
+
 fun redirect(target: String? = null): DesktopRedirector {
     return DesktopRedirector(target)
 }
@@ -24,6 +38,6 @@ class DesktopRedirector internal constructor(
         name: String,
         params: Map<String, String> = emptyMap()
     ): DesktopResponse.Redirect {
-        return DesktopResponse.Redirect(target = kernel.routing.route(name, params))
+        return DesktopResponse.Redirect(target = kernel.routing.desktopRoute(name, params))
     }
 }

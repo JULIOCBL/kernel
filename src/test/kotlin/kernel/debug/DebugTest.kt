@@ -13,7 +13,7 @@ class DebugTest {
     fun `dump formats structured values`() {
         var printed = ""
 
-        dump(
+        Debug.dump(
             mapOf(
                 "name" to "Kernel",
                 "features" to listOf("cli", "migrations")
@@ -24,6 +24,7 @@ class DebugTest {
 
         assertTrue(printed.contains("DebugTest"), printed)
         assertTrue(printed.contains("DebugTest.kt"), printed)
+        assertContains(printed, "DebugTest")
         assertContains(printed, "dump = {")
         assertContains(printed, "\"name\": \"Kernel\"")
         assertContains(printed, "\"features\": [")
@@ -35,13 +36,14 @@ class DebugTest {
         var printed = ""
 
         val signal = assertFailsWith<DumpAndDieSignal> {
-            dd("halt") { output ->
+            Debug.dd("halt") { output ->
                 printed = output
             }
         }
 
         assertEquals(DumpAndDieSignal.instance, signal)
         assertTrue(printed.contains("DebugTest.kt"), printed)
+        assertContains(printed, "DebugTest")
         assertContains(printed, "dd = \"halt\"")
     }
 
@@ -61,7 +63,7 @@ class DebugTest {
     fun `dump renders object properties for custom classes`() {
         var printed = ""
 
-        dump(
+        Debug.dump(
             DebugUser(
                 id = 1,
                 name = "Julio",
@@ -84,7 +86,7 @@ class DebugTest {
         val node = DebugNode("root")
         node.next = node
 
-        dump(node) { output ->
+        Debug.dump(node) { output ->
             printed = output
         }
 
@@ -101,7 +103,7 @@ class DebugTest {
             maxCollectionItems = 25,
             maxStringLength = 500
         ) {
-            dump(
+            Debug.dump(
                 mapOf(
                     "text" to "a".repeat(700),
                     "items" to (1..40).toList()
@@ -120,7 +122,7 @@ class DebugTest {
         var printed = ""
 
         withDebugConfig(maxDepth = 6) {
-            dump(
+            Debug.dump(
                 DeepNode(
                     1,
                     DeepNode(
@@ -152,7 +154,7 @@ class DebugTest {
     fun `dump supports custom debug renderers`() {
         var printed = ""
 
-        dump(DebugBox("secret")) { output ->
+        Debug.dump(DebugBox("secret")) { output ->
             printed = output
         }
 
@@ -165,7 +167,7 @@ class DebugTest {
     fun `dump handles optional pair and triple`() {
         var printed = ""
 
-        dump(
+        Debug.dump(
             mapOf(
                 "optional" to Optional.of("kernel"),
                 "pair" to ("alpha" to 2),
@@ -190,7 +192,7 @@ class DebugTest {
             maxCollectionItems = null,
             maxStringLength = null
         ) {
-            dump(
+            Debug.dump(
                 mapOf(
                     "text" to "a".repeat(700),
                     "items" to (1..40).toList()
