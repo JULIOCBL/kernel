@@ -35,11 +35,11 @@ class DatabaseLifecycleTest {
         )
 
         try {
-            val manager = application.databaseManager()
+            val manager = kernel.database.pdo.connections.DatabaseManager.from(application)
             manager.withConnection { }
             assertEquals(setOf("main"), manager.activePooledConnectionNames())
 
-            application.closeDatabaseManager()
+            (application.config.get("services.database.manager") as? AutoCloseable)?.close()
             assertTrue(manager.activePooledConnectionNames().isEmpty())
         } finally {
             DriverManager.deregisterDriver(fakeDriver)

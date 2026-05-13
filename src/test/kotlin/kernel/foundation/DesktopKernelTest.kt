@@ -14,7 +14,7 @@ class DesktopKernelTest {
         val events = mutableListOf<String>()
         val application = Application.bootstrap(createTempDirectory("desktop-kernel-test"))
         val kernel = object : DesktopKernel(application) {
-            override val middleware = listOf<MiddlewareFactory>(
+            override val middleware = listOf<(Application) -> Middleware>(
                 { _: Application ->
                     Middleware { request, next ->
                         events += "global-before"
@@ -29,7 +29,7 @@ class DesktopKernelTest {
                 "desktop" to listOf("audit")
             )
 
-            override val routeMiddleware: Map<String, MiddlewareFactory> = mapOf(
+            override val routeMiddleware: Map<String, (Application) -> Middleware> = mapOf(
                 "audit" to { _: Application ->
                     Middleware { request, next ->
                         events += "route-before"
@@ -61,7 +61,7 @@ class DesktopKernelTest {
     fun `desktop kernel short circuits when middleware redirects`() {
         val application = Application.bootstrap(createTempDirectory("desktop-kernel-test"))
         val kernel = object : DesktopKernel(application) {
-            override val routeMiddleware: Map<String, MiddlewareFactory> = mapOf(
+            override val routeMiddleware: Map<String, (Application) -> Middleware> = mapOf(
                 "auth" to { _: Application ->
                     Middleware { _, _ ->
                         DesktopResponse.Redirect("/activation")

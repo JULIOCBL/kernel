@@ -60,7 +60,7 @@ class HttpKernelTest {
             override val middlewareGroups: Map<String, List<String>> = mapOf(
                 "api" to listOf("logging", "auth")
             )
-            override val routeMiddleware: Map<String, HttpMiddlewareFactory> = mapOf(
+            override val routeMiddleware: Map<String, (Application) -> HttpMiddleware> = mapOf(
                 "auth" to { _ ->
                     HttpMiddleware { request, next ->
                         events += "auth:before"

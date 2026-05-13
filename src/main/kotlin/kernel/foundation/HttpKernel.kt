@@ -57,8 +57,15 @@ open class HttpKernel(
 
             pipeline(routedRequest)
         } catch (error: Throwable) {
-            exceptionHandler.render(request, error)
+            renderException(request, error)
         }
+    }
+
+    fun renderException(
+        request: Request,
+        error: Throwable
+    ): KernelResponse {
+        return exceptionHandler.render(request, error)
     }
 
     fun resolveMiddleware(routeMiddlewareAliases: List<String>): List<HttpMiddlewareFactory> {

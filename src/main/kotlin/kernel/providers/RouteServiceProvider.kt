@@ -62,6 +62,7 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
         app.config.set("services.routes.desktop.navigator", desktopNavigator)
         app.config.set("services.routes.api.router", apiRouter)
         app.config.set("services.http.kernel", httpKernel)
+        app.config.set("services.http.exception_handler", httpKernel.exceptionHandler)
         app.config.set("services.routes.controllers", controllerRegistry)
 
         // Alias de compatibilidad mientras se migra el código viejo.

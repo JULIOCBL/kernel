@@ -105,8 +105,8 @@ class RouteFacadeTest {
                 .action { params -> params["id"] ?: "0" }
         }
 
-        val url = route("dashboard.show", mapOf("id" to "42"))
-        val redirectResponse = redirect().route("dashboard.show", mapOf("id" to "42"))
+        val url = Route.route("dashboard.show", mapOf("id" to "42"))
+        val redirectResponse = DesktopResponse.Redirect(target = Route.route("dashboard.show", mapOf("id" to "42")))
 
         assertEquals("desk:///dashboard/42", url)
         assertIs<DesktopResponse.Redirect>(redirectResponse)

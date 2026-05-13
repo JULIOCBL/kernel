@@ -319,7 +319,7 @@ class DatabaseManagerTest {
             )
         )
 
-        val manager = databaseManager()
+        val manager = DatabaseManager.from(application)
 
         assertEquals("primary", manager.defaultConnectionName())
         assertEquals(listOf("primary"), manager.connectionNames())

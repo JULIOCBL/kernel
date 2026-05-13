@@ -25,7 +25,10 @@ class MailManager(
     ): MailReceipt {
         val config = resolveConfig(overrides)
         val from = config.from()
-            ?: error("La configuracion de mail debe definir MAIL_FROM_ADDRESS o fromAddress dinamico.")
+            ?: error(
+                "La configuracion de mail debe definir `mail.from.address` " +
+                    "o un `fromAddress` dinamico en MailConfigOverrides."
+            )
         val message = mailable.toMessage(from)
         val transport = transports[config.driver]
             ?: error("No existe un transporte de mail registrado para `${config.driver}`.")

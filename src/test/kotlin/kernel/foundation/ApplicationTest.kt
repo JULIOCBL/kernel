@@ -3,11 +3,9 @@ package kernel.foundation
 import kernel.config.ConfigFile
 import kernel.config.MapConfigLoader
 import kernel.env.Env
-import kernel.env.env
 import kernel.lang.LangFile
 import kernel.providers.ProviderFactory
 import kernel.providers.ServiceProvider
-import kernel.providers.providerFactory
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
 import kotlin.test.BeforeTest
@@ -97,10 +95,10 @@ class ApplicationTest {
         val application = Application.bootstrapRuntime(basePath = basePath, systemValues = emptyMap())
             .loadConfig(AppConfigFile)
 
-        assertEquals(application, app())
+        assertEquals(application, ApplicationRuntime.current())
         assertEquals("Kernel Test App", kernel.config.config("app.name"))
         assertEquals(true, kernel.config.config("app.debug"))
-        assertEquals("Kernel From Default", env("MISSING_ENV", "Kernel From Default"))
+        assertEquals("Kernel From Default", ApplicationRuntime.current().env.get("MISSING_ENV", "Kernel From Default"))
         assertEquals(basePath, basePath())
         assertEquals(basePath.resolve("config").normalize(), basePath("config"))
     }
@@ -163,12 +161,7 @@ class ApplicationTest {
             kernel.config.config("app.name")
         }
 
-        val envError = assertFailsWith<IllegalStateException> {
-            env("APP_NAME")
-        }
-
         assertTrue(configError.message!!.contains("no ha sido inicializado"))
-        assertTrue(envError.message!!.contains("no ha sido inicializado"))
     }
 
     @Test
@@ -202,9 +195,9 @@ class ApplicationTest {
             systemValues = emptyMap()
         )
         val providers: List<ProviderFactory> = listOf(
-            providerFactory(::TrackingProvider),
-            providerFactory(::TrackingProvider),
-            providerFactory(::MetricsProvider)
+            ProviderFactory(TrackingProvider::class, ::TrackingProvider),
+            ProviderFactory(TrackingProvider::class, ::TrackingProvider),
+            ProviderFactory(MetricsProvider::class, ::MetricsProvider)
         )
 
         application.registerAll(providers).boot()
@@ -222,8 +215,8 @@ class ApplicationTest {
             systemValues = emptyMap()
         )
         val providers = listOf(
-            providerFactory(::ConstructorProbeProvider),
-            providerFactory(::ConstructorProbeProvider)
+            ProviderFactory(ConstructorProbeProvider::class, ::ConstructorProbeProvider),
+            ProviderFactory(ConstructorProbeProvider::class, ::ConstructorProbeProvider)
         )
 
         application.registerAll(providers).boot()
@@ -292,11 +285,11 @@ class ApplicationTest {
 
     private class RuntimeAwareProvider(app: Application) : ServiceProvider(app) {
         override fun register() {
-            app().config.set("providers.runtimeAware.registered", true)
+            ApplicationRuntime.current().config.set("providers.runtimeAware.registered", true)
         }
 
         override fun boot() {
-            app().config.set("providers.runtimeAware.booted", true)
+            ApplicationRuntime.current().config.set("providers.runtimeAware.booted", true)
         }
     }
 
