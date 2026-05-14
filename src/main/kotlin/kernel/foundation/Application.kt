@@ -2,6 +2,7 @@ package kernel.foundation
 
 import kernel.config.ConfigLoader
 import kernel.config.ConfigFile
+import kernel.config.ConfigBinaryCache
 import kernel.config.ConfigStore
 import kernel.env.Env
 import kernel.env.EnvLoader
@@ -254,15 +255,25 @@ class Application(
             val normalizedBasePath = basePath.toAbsolutePath().normalize()
             val processId = ApplicationProcessLock.acquire(normalizedBasePath, processLockMode)
             val loadedEnvironment = EnvLoader(normalizedBasePath.resolve(environmentFile)).load()
+            val environment = Env(loadedEnvironment, systemValues)
+            val expectedEnvironment = environment.string("APP_ENV", "production")
+            val cacheResult = ConfigBinaryCache.load(
+                basePath = normalizedBasePath,
+                expectedEnvironment = expectedEnvironment
+            )
 
             return Application(
                 basePath = normalizedBasePath,
-                env = Env(loadedEnvironment, systemValues),
-                config = ConfigStore()
+                env = environment,
+                config = ConfigStore(cacheResult.values)
             ).apply {
                 config.set("runtime.process.pid", processId)
                 config.set("runtime.process.pid_file", ApplicationProcessLock.pidFile(normalizedBasePath).toString())
                 config.set("runtime.process.lock_mode", processLockMode.name.lowercase())
+                config.set("runtime.config.cache.path", cacheResult.path.toString())
+                config.set("runtime.config.cache.loaded", cacheResult.loaded)
+                config.set("runtime.config.cache.environment", cacheResult.environment ?: expectedEnvironment)
+                config.set("runtime.config.cache.reason", cacheResult.reason)
             }
         }
 

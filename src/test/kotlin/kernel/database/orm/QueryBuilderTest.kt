@@ -119,4 +119,42 @@ class QueryBuilderTest {
             error.message
         )
     }
+
+    @Test
+    fun `query builder builds postgres upsert sql`() {
+        val sql = QueryBuilder(
+            table = "orders_statuses",
+            rowMapper = { _ -> Unit }
+        ).buildUpsertSql(
+            driverId = "pgsql",
+            columns = listOf("id", "name_en", "name_es", "name_fr", "name_pt"),
+            uniqueBy = listOf("id"),
+            updateColumns = listOf("name_es", "name_en", "name_fr", "name_pt"),
+            recordCount = 2
+        )
+
+        assertEquals(
+            "INSERT INTO orders_statuses (id, name_en, name_es, name_fr, name_pt) VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET name_es = EXCLUDED.name_es, name_en = EXCLUDED.name_en, name_fr = EXCLUDED.name_fr, name_pt = EXCLUDED.name_pt",
+            sql
+        )
+    }
+
+    @Test
+    fun `query builder builds mariadb upsert sql`() {
+        val sql = QueryBuilder(
+            table = "orders_statuses",
+            rowMapper = { _ -> Unit }
+        ).buildUpsertSql(
+            driverId = "mariadb",
+            columns = listOf("id", "name_en", "name_es", "name_fr", "name_pt"),
+            uniqueBy = listOf("id"),
+            updateColumns = listOf("name_es", "name_en", "name_fr", "name_pt"),
+            recordCount = 2
+        )
+
+        assertEquals(
+            "INSERT INTO orders_statuses (id, name_en, name_es, name_fr, name_pt) VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name_es = VALUES(name_es), name_en = VALUES(name_en), name_fr = VALUES(name_fr), name_pt = VALUES(name_pt)",
+            sql
+        )
+    }
 }

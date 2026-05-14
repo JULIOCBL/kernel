@@ -68,6 +68,18 @@ abstract class ModelDefinition<M : Model>(
             .first()
     }
 
+    suspend fun upsert(
+        records: List<Map<String, Any?>>,
+        uniqueBy: List<String>,
+        updateColumns: List<String> = emptyList()
+    ): Int {
+        return query().upsert(
+            records = records,
+            uniqueBy = uniqueBy,
+            updateColumns = updateColumns
+        )
+    }
+
     private fun inferModelSimpleName(): String {
         return javaClass.enclosingClass?.simpleName
             ?: error(

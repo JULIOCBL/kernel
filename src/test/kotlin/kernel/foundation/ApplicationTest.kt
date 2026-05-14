@@ -1,6 +1,7 @@
 package kernel.foundation
 
 import kernel.config.ConfigFile
+import kernel.config.ConfigBinaryCache
 import kernel.config.MapConfigLoader
 import kernel.env.Env
 import kernel.lang.LangFile
@@ -88,6 +89,57 @@ class ApplicationTest {
             blocker.destroyForcibly()
             ApplicationProcessLock.clear(basePath)
         }
+    }
+
+    @Test
+    fun `bootstrap loads config from binary cache and keeps config mutable`() {
+        val basePath = createTempDirectory("kernel-config-cache-test").toAbsolutePath()
+        basePath.resolve(".env").writeText("APP_ENV=production")
+        ConfigBinaryCache.write(
+            basePath = basePath,
+            environment = "production",
+            values = mapOf(
+                "app" to mapOf(
+                    "name" to "Kernel From Cache",
+                    "debug" to true
+                )
+            )
+        )
+
+        val application = Application.bootstrap(
+            basePath = basePath,
+            systemValues = emptyMap(),
+            processLockMode = ProcessLockMode.OBSERVE
+        )
+
+        assertTrue(application.config.bool("runtime.config.cache.loaded"))
+        assertEquals("Kernel From Cache", application.config.string("app.name"))
+
+        application.config.set("app.name", "Kernel Overridden In Memory")
+        assertEquals("Kernel Overridden In Memory", application.config.string("app.name"))
+    }
+
+    @Test
+    fun `bootstrap ignores config cache when environment changes`() {
+        val basePath = createTempDirectory("kernel-config-cache-env-test").toAbsolutePath()
+        basePath.resolve(".env").writeText("APP_ENV=staging")
+        ConfigBinaryCache.write(
+            basePath = basePath,
+            environment = "production",
+            values = mapOf(
+                "app" to mapOf("name" to "Kernel From Cache")
+            )
+        )
+
+        val application = Application.bootstrap(
+            basePath = basePath,
+            systemValues = emptyMap(),
+            processLockMode = ProcessLockMode.OBSERVE
+        )
+
+        assertFalse(application.config.bool("runtime.config.cache.loaded"))
+        assertEquals("environment-mismatch", application.config.string("runtime.config.cache.reason"))
+        assertEquals("", application.config.string("app.name"))
     }
 
     @Test

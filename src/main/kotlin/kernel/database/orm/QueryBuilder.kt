@@ -1,6 +1,7 @@
 package kernel.database.orm
 
 import kernel.database.DB
+import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 
@@ -290,6 +291,62 @@ class QueryBuilder<T>(
         }
     }
 
+    suspend fun upsert(
+        records: List<Map<String, Any?>>,
+        uniqueBy: List<String>,
+        updateColumns: List<String> = emptyList()
+    ): Int {
+        require(records.isNotEmpty()) {
+            "No se puede hacer upsert sin registros en `$normalizedTable`."
+        }
+
+        val normalizedColumns = normalizeUpsertColumns(records)
+        val normalizedUniqueBy = uniqueBy.map(::sanitizeIdentifier).distinct()
+        require(normalizedUniqueBy.isNotEmpty()) {
+            "Debes indicar al menos una columna unica para `upsert()` en `$normalizedTable`."
+        }
+        require(normalizedUniqueBy.all { it in normalizedColumns }) {
+            "Las columnas unicas de `upsert()` deben existir en los registros para `$normalizedTable`."
+        }
+
+        val normalizedUpdateColumns = if (updateColumns.isEmpty()) {
+            normalizedColumns.filterNot { it in normalizedUniqueBy }
+        } else {
+            updateColumns.map(::sanitizeIdentifier).distinct().also { requested ->
+                require(requested.all { it in normalizedColumns }) {
+                    "Las columnas a actualizar en `upsert()` deben existir en los registros para `$normalizedTable`."
+                }
+            }
+        }
+
+        val normalizedRecords = records.map { record ->
+            val sanitized = record.entries.associate { (column, value) ->
+                sanitizeIdentifier(column) to value
+            }
+
+            normalizedColumns.associateWith { column -> sanitized[column] }
+        }
+
+        return DB.withConnection(connectionName) { connection ->
+            val driverId = resolveDriverId(connection)
+            val sql = buildUpsertSql(
+                driverId = driverId,
+                columns = normalizedColumns,
+                uniqueBy = normalizedUniqueBy,
+                updateColumns = normalizedUpdateColumns,
+                recordCount = normalizedRecords.size
+            )
+
+            connection.prepareStatement(sql).use { statement ->
+                val values = normalizedRecords.flatMap { record ->
+                    normalizedColumns.map { column -> record[column] }
+                }
+                bindValues(statement, values, offset = 1)
+                statement.executeUpdate()
+            }
+        }
+    }
+
     internal fun buildSelectSql(): String {
         val projection = if (selectedColumns.isEmpty()) "*" else selectedColumns.joinToString(", ")
         val joinSql = joins.joinToString(separator = " ") { join ->
@@ -369,6 +426,20 @@ class QueryBuilder<T>(
                 sanitizeIdentifier(column) to value
             }
             .toSortedMap()
+    }
+
+    private fun normalizeUpsertColumns(records: List<Map<String, Any?>>): List<String> {
+        val columns = records
+            .flatMap { record -> record.keys }
+            .map(::sanitizeIdentifier)
+            .distinct()
+            .sorted()
+
+        require(columns.isNotEmpty()) {
+            "No se puede hacer upsert con registros vacios en `$normalizedTable`."
+        }
+
+        return columns
     }
 
     private fun normalizeWhereValues(values: Iterable<Any?>): List<Any?> {
@@ -475,6 +546,64 @@ class QueryBuilder<T>(
         }
 
         return normalized
+    }
+
+    private fun resolveDriverId(connection: Connection): String {
+        val productName = connection.metaData.databaseProductName.orEmpty().lowercase()
+
+        return when {
+            "postgres" in productName -> "pgsql"
+            "mariadb" in productName || "mysql" in productName -> "mariadb"
+            else -> error("No existe soporte de `upsert()` para el motor `$productName`.")
+        }
+    }
+
+    internal fun buildUpsertSql(
+        driverId: String,
+        columns: List<String>,
+        uniqueBy: List<String>,
+        updateColumns: List<String>,
+        recordCount: Int
+    ): String {
+        require(recordCount > 0) {
+            "Debes indicar al menos un registro para construir un `upsert()` en `$normalizedTable`."
+        }
+
+        val normalizedColumns = columns.map(::sanitizeIdentifier).distinct()
+        val normalizedUniqueBy = uniqueBy.map(::sanitizeIdentifier).distinct()
+        val normalizedUpdateColumns = updateColumns.map(::sanitizeIdentifier).distinct()
+        val placeholders = normalizedColumns.joinToString(", ") { "?" }
+        val valuesSql = List(recordCount) { "($placeholders)" }.joinToString(", ")
+        val columnsSql = normalizedColumns.joinToString(", ")
+
+        return when (driverId.lowercase()) {
+            "pgsql" -> {
+                val conflictSql = normalizedUniqueBy.joinToString(", ")
+                val actionSql = if (normalizedUpdateColumns.isEmpty()) {
+                    "DO NOTHING"
+                } else {
+                    val assignments = normalizedUpdateColumns.joinToString(", ") { column ->
+                        "$column = EXCLUDED.$column"
+                    }
+                    "DO UPDATE SET $assignments"
+                }
+
+                "INSERT INTO $normalizedTable ($columnsSql) VALUES $valuesSql ON CONFLICT ($conflictSql) $actionSql"
+            }
+            "mariadb" -> {
+                val assignments = if (normalizedUpdateColumns.isEmpty()) {
+                    val keepColumn = normalizedUniqueBy.first()
+                    "$keepColumn = $keepColumn"
+                } else {
+                    normalizedUpdateColumns.joinToString(", ") { column ->
+                        "$column = VALUES($column)"
+                    }
+                }
+
+                "INSERT INTO $normalizedTable ($columnsSql) VALUES $valuesSql ON DUPLICATE KEY UPDATE $assignments"
+            }
+            else -> error("No existe soporte de `upsert()` para el driver `$driverId`.")
+        }
     }
 
     companion object {
