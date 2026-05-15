@@ -78,7 +78,11 @@ class SeederRunner(
             return
         }
 
-        DB.transaction(connectionName = seeder.connectionName) {
+        if (seeder.connectionName != null) {
+            DB.transaction(connectionName = seeder.connectionName) {
+                seeder.run()
+            }
+        } else {
             seeder.run()
         }
         executed += name

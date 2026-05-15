@@ -15,6 +15,9 @@ class SecureStatusCommand(
     private val statusResolver: () -> kernel.security.SecureRuntimeStatus = SecureRuntimeDiagnostics::currentStatus
 ) : Command {
     override val name: String = "secure:status"
+    override val description: String =
+        "Diagnostica el runtime nativo seguro del kernel. Ejemplo: ./kernel secure:status"
+    override val usage: String = "secure:status"
 
     override fun execute(input: CommandInput): CommandResult {
         val status = statusResolver()

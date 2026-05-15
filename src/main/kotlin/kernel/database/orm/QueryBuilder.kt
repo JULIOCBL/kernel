@@ -1,9 +1,20 @@
 package kernel.database.orm
 
 import kernel.database.DB
+import kernel.database.migrations.MigrationQueryContext
+import kotlinx.coroutines.runBlocking
+import java.math.BigDecimal
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.OffsetDateTime
+import java.time.OffsetTime
+import java.time.ZonedDateTime
+import java.util.UUID
 
 private sealed interface WhereNode {
     val boolean: String
@@ -46,16 +57,25 @@ private data class OrderByClause(
 class QueryBuilder<T>(
     private val table: String,
     private val rowMapper: (ResultSet) -> T,
-    private val connectionName: String? = null
+    private val connectionName: String? = null,
+    private val softDeleteColumn: String? = null
 ) {
+    private enum class TrashScope {
+        DEFAULT,
+        WITH_TRASHED,
+        ONLY_TRASHED
+    }
+
     private val selectedColumns = mutableListOf<String>()
     private val whereNodes = mutableListOf<WhereNode>()
     private val joins = mutableListOf<JoinClause>()
     private val orderByClauses = mutableListOf<OrderByClause>()
     private var limitValue: Int? = null
     private var offsetValue: Int? = null
+    private var trashScope: TrashScope = TrashScope.DEFAULT
 
     private val normalizedTable = sanitizeIdentifier(table)
+    private val normalizedSoftDeleteColumn = softDeleteColumn?.let(::sanitizeIdentifier)
 
     fun select(vararg columns: String): QueryBuilder<T> {
         selectedColumns.clear()
@@ -232,6 +252,21 @@ class QueryBuilder<T>(
         return this
     }
 
+    fun withTrashed(): QueryBuilder<T> {
+        trashScope = TrashScope.WITH_TRASHED
+        return this
+    }
+
+    fun onlyTrashed(): QueryBuilder<T> {
+        trashScope = TrashScope.ONLY_TRASHED
+        return this
+    }
+
+    fun withoutTrashed(): QueryBuilder<T> {
+        trashScope = TrashScope.DEFAULT
+        return this
+    }
+
     suspend fun get(): List<T> {
         return DB.withConnection(connectionName) { connection ->
             connection.prepareStatement(buildSelectSql()).use { statement ->
@@ -287,6 +322,30 @@ class QueryBuilder<T>(
                 bindValues(statement, normalizedValues.values.toList(), offset = 1)
                 bindWhereValues(statement, offset = normalizedValues.size + 1)
                 statement.executeUpdate()
+            }
+        }
+    }
+
+    fun delete(): Int {
+        require(whereNodes.isNotEmpty()) {
+            "Por seguridad, `delete()` requiere al menos una clausula `where` en `$normalizedTable`."
+        }
+
+        val migrationContext = MigrationQueryContext.current()
+        if (migrationContext != null) {
+            MigrationQueryContext.recordStatement(
+                sql = buildDeleteSql(literalValues = true),
+                requestedConnectionName = connectionName
+            )
+            return 0
+        }
+
+        return runBlocking {
+            DB.withConnection(connectionName) { connection ->
+                connection.prepareStatement(buildDeleteSql(literalValues = false)).use { statement ->
+                    bindWhereValues(statement, offset = 1)
+                    statement.executeUpdate()
+                }
             }
         }
     }
@@ -371,19 +430,30 @@ class QueryBuilder<T>(
         }
     }
 
-    private fun buildWhereSql(): String {
-        if (whereNodes.isEmpty()) {
+    private fun buildWhereSql(literalValues: Boolean = false): String {
+        val scopeClause = buildSoftDeleteScopeClause()
+        if (whereNodes.isEmpty() && scopeClause == null) {
             return ""
         }
 
-        return " WHERE ${compileWhereNodes(whereNodes)}"
+        val segments = buildList {
+            if (whereNodes.isNotEmpty()) {
+                add(compileWhereNodes(whereNodes, literalValues))
+            }
+            scopeClause?.let(::add)
+        }
+
+        return " WHERE ${segments.joinToString(" AND ")}"
     }
 
-    private fun compileWhereNodes(nodes: List<WhereNode>): String {
+    private fun compileWhereNodes(
+        nodes: List<WhereNode>,
+        literalValues: Boolean
+    ): String {
         return nodes.mapIndexed { index, node ->
             val compiled = when (node) {
-                is WhereClause -> compileWhereClause(node)
-                is WhereGroup -> "(${compileWhereNodes(node.nodes)})"
+                is WhereClause -> compileWhereClause(node, literalValues)
+                is WhereGroup -> "(${compileWhereNodes(node.nodes, literalValues)})"
             }
 
             if (index == 0) {
@@ -451,15 +521,29 @@ class QueryBuilder<T>(
         return normalized
     }
 
-    private fun compileWhereClause(clause: WhereClause): String {
+    private fun compileWhereClause(
+        clause: WhereClause,
+        literalValues: Boolean
+    ): String {
         return when (clause.kind) {
-            WhereKind.BASIC -> "${clause.column} ${clause.operator} ?"
+            WhereKind.BASIC -> {
+                val value = if (literalValues) {
+                    renderSqlLiteral(clause.values.single())
+                } else {
+                    "?"
+                }
+                "${clause.column} ${clause.operator} $value"
+            }
             WhereKind.IN -> {
-                val placeholders = clause.values.joinToString(", ") { "?" }
+                val placeholders = clause.values.joinToString(", ") { value ->
+                    if (literalValues) renderSqlLiteral(value) else "?"
+                }
                 "${clause.column} IN ($placeholders)"
             }
             WhereKind.NOT_IN -> {
-                val placeholders = clause.values.joinToString(", ") { "?" }
+                val placeholders = clause.values.joinToString(", ") { value ->
+                    if (literalValues) renderSqlLiteral(value) else "?"
+                }
                 "${clause.column} NOT IN ($placeholders)"
             }
             WhereKind.NULL -> "${clause.column} IS NULL"
@@ -490,7 +574,8 @@ class QueryBuilder<T>(
         val nestedBuilder = QueryBuilder(
             table = normalizedTable,
             rowMapper = rowMapper,
-            connectionName = connectionName
+            connectionName = connectionName,
+            softDeleteColumn = softDeleteColumn
         )
         nestedBuilder.block()
 
@@ -528,6 +613,70 @@ class QueryBuilder<T>(
         }
 
         return normalized
+    }
+
+    private fun buildSoftDeleteScopeClause(): String? {
+        val column = normalizedSoftDeleteColumn ?: return null
+
+        return when (trashScope) {
+            TrashScope.DEFAULT -> "$column IS NULL"
+            TrashScope.WITH_TRASHED -> null
+            TrashScope.ONLY_TRASHED -> "$column IS NOT NULL"
+        }
+    }
+
+    private fun buildDeleteSql(literalValues: Boolean): String {
+        return if (normalizedSoftDeleteColumn != null) {
+            buildString {
+                append("UPDATE $normalizedTable SET $normalizedSoftDeleteColumn = CURRENT_TIMESTAMP")
+                append(buildWhereSql(literalValues = literalValues))
+            }
+        } else {
+            buildString {
+                append("DELETE FROM $normalizedTable")
+                append(buildWhereSql(literalValues = literalValues))
+            }
+        }
+    }
+
+    private fun renderSqlLiteral(value: Any?): String {
+        return when (value) {
+            null -> "NULL"
+            is String -> "'${value.replace("'", "''")}'"
+            is Char -> "'${value.toString().replace("'", "''")}'"
+            is Boolean -> if (value) "TRUE" else "FALSE"
+            is ByteArray -> error("No existe soporte para inyectar ByteArray literal en migraciones.")
+            is Number -> when (value) {
+                is Double -> requireFinite(value)
+                is Float -> requireFinite(value)
+                is BigDecimal -> value.toPlainString()
+                else -> value.toString()
+            }
+            is Enum<*> -> "'${value.name.replace("'", "''")}'"
+            is UUID,
+            is LocalDate,
+            is LocalTime,
+            is LocalDateTime,
+            is OffsetDateTime,
+            is OffsetTime,
+            is ZonedDateTime,
+            is Instant -> "'${value.toString().replace("'", "''")}'"
+            else -> "'${value.toString().replace("'", "''")}'"
+        }
+    }
+
+    private fun requireFinite(value: Double): String {
+        require(value.isFinite()) {
+            "No se pueden compilar literales Double no finitos dentro de migraciones."
+        }
+        return value.toString()
+    }
+
+    private fun requireFinite(value: Float): String {
+        require(value.isFinite()) {
+            "No se pueden compilar literales Float no finitos dentro de migraciones."
+        }
+        return value.toString()
     }
 
     private fun sanitizeOperator(value: String): String {

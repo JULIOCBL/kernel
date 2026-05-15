@@ -188,6 +188,250 @@ Si una app quiere ajustar el pool por conexión, puede definir:
 desktop abierta durante horas no recrea pools nuevos cada vez que alguien pide
 el manager otra vez.
 
+## ORM y DB Facade
+
+El kernel ya expone dos estilos de acceso para operaciones de datos:
+
+- con modelo, usando `ModelDefinition`;
+- sin modelo, usando `DB.table(...)`.
+
+### Con Modelo
+
+Si un modelo declara su `companion object` como `ModelDefinition`, ya puede
+construir queries estilo Laravel:
+
+```kotlin
+data class LabUser(
+    val id: Int,
+    val email: String
+) : Model() {
+    override fun primaryKeyValue(): Any? = id
+
+    override fun persistenceAttributes(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "email" to email
+        )
+    }
+
+    companion object : ModelDefinition<LabUser>(
+        tableName = "lab_users",
+        mapper = { result ->
+            LabUser(
+                id = result.getInt("id"),
+                email = result.getString("email")
+            )
+        }
+    )
+}
+```
+
+Ejemplos soportados hoy:
+
+```kotlin
+LabUser.where("status", "=", "inactive").delete()
+
+LabUser.whereIn("id", listOf(1, 7, 15)).delete()
+
+LabUser.query()
+    .whereIn("id", listOf(1, 7, 15))
+    .delete()
+
+LabUser.delete(1)
+```
+
+`LabUser.delete(1)` usa la `primaryKey` declarada por el modelo. Si la llave no
+es `id`, el atajo sigue respetando la configuracion del `ModelDefinition`.
+
+### Sin Modelo
+
+Cuando no existe un modelo, la fachada `DB` puede construir un `QueryBuilder`
+directamente sobre una tabla:
+
+```kotlin
+DB.table("lab_users")
+    .where("id", "=", 1)
+    .delete()
+```
+
+Si no indicas una conexion, `DB.table(...)` usa la conexion default resuelta por
+el runtime.
+
+Tambien se puede fijar una conexion explicita:
+
+```kotlin
+DB.connection("mysql2")
+    .table("lab_users")
+    .whereIn("id", listOf(1, 7, 15))
+    .delete()
+```
+
+`DB.connection("...")` solo fija el nombre de conexion para ese builder. La
+resolucion real sigue pasando por `DatabaseManager`.
+
+### Uso Dentro De Migraciones
+
+Cuando `DB.table(...).delete()` o `ModelDefinition.delete(...)` se usan dentro
+de `up()` o `down()`, el kernel ya no ejecuta JDBC directo.
+
+En ese contexto:
+
+- detecta que existe una migracion activa;
+- compila la operacion a SQL final;
+- la registra en el mismo collector que usa `statement(...)`;
+- deja que el `Migrator` la ejecute en orden junto con el resto.
+
+Ejemplo:
+
+```kotlin
+override fun down() {
+    DB.table("lab_users")
+        .whereIn("id", listOf(1, 7, 15))
+        .delete()
+}
+```
+
+Eso termina comportandose como si hubieras escrito:
+
+```kotlin
+override fun down() {
+    statement("DELETE FROM lab_users WHERE id IN (1, 7, 15)")
+}
+```
+
+Con modelos ocurre lo mismo:
+
+```kotlin
+override fun down() {
+    LabUser.delete(1)
+}
+```
+
+Importante:
+
+- `delete()` dentro de migraciones ya no requiere `runBlocking`;
+- sigue siendo secuencial, igual que `statement(...)`;
+- `DB.connection("logs")` dentro de migraciones solo se permite si la
+  migracion declara `override val connectionName = "logs"`.
+
+### Soft Deletes En El ORM
+
+El ORM puede activar soft delete por modelo cuando el `ModelDefinition`
+declara `softDeleteColumn`:
+
+```kotlin
+companion object : ModelDefinition<LabUser>(
+    tableName = "lab_users",
+    mapper = { result ->
+        LabUser(
+            id = result.getInt("id"),
+            email = result.getString("email")
+        )
+    },
+    softDeleteColumn = "deleted_at"
+)
+```
+
+Con esa configuracion:
+
+- `query()` aplica por defecto `deleted_at IS NULL`;
+- `delete()` se convierte en `UPDATE ... SET deleted_at = CURRENT_TIMESTAMP`;
+- `withTrashed()` expone filas activas y borradas;
+- `onlyTrashed()` devuelve solo filas ya marcadas como borradas.
+
+Ejemplo:
+
+```kotlin
+LabUser.withTrashed().get()
+LabUser.onlyTrashed().get()
+LabUser.whereIn("id", listOf(1, 7, 15)).delete()
+```
+
+La semantica de `delete()` sigue siendo segura:
+
+- requiere al menos una clausula `where`;
+- no permite `delete()` masivo sin filtro;
+- si el modelo no define `softDeleteColumn`, entonces si ejecuta `DELETE FROM`.
+
+## Seeders y Resolucion De Conexion
+
+La capa de seeders sigue la misma idea que Laravel: el seeder no deberia
+repetir motor o conexion si ya existe una fuente natural para resolverla.
+
+La prioridad sana es:
+
+- si usas un modelo, el modelo decide su `connectionName`;
+- si usas `DB.table(...)`, se usa la conexion default;
+- solo si quieres salirte de esa regla, usas `DB.connection("...")`;
+- `Seeder.connectionName` sirve para envolver todo el seeder en una
+  transaccion sobre una conexion especifica.
+
+Ejemplo con modelo:
+
+```kotlin
+class LabUserSeeder(
+    app: Application
+) : Seeder(app) {
+    override suspend fun run() {
+        if (LabUser.find(1) == null) {
+            LabUser(id = 1, email = "demo@example.com").save()
+        }
+    }
+}
+```
+
+Aqui no hace falta repetir conexion en el seeder si `LabUser` ya conoce la
+suya.
+
+Ejemplo con tabla directa:
+
+```kotlin
+class LegacyUserSeeder(
+    app: Application
+) : Seeder(app) {
+    override suspend fun run() {
+        DB.table("lab_users")
+            .insert(
+                mapOf(
+                    "id" to 1,
+                    "email" to "demo@example.com"
+                )
+            )
+    }
+}
+```
+
+Aqui `DB.table(...)` usa `database.default`.
+
+Solo cuando el seeder entero deba vivir sobre otra conexion tiene sentido
+declarar:
+
+```kotlin
+override val connectionName: String = "logs"
+```
+
+o usar un override puntual:
+
+```kotlin
+DB.connection("logs")
+    .table("audit_entries")
+    .insert(mapOf("message" to "seeded"))
+```
+
+Comportamiento del runner:
+
+- si `connectionName` es `null`, el seeder no fuerza una transaccion global;
+- si `connectionName` tiene valor, el runner envuelve el seeder completo en
+  `DB.transaction(connectionName = ...)`;
+- eso evita abrir una transaccion inutil sobre la conexion default cuando el
+  seeder realmente trabaja con un modelo que ya define otra conexion.
+
+En resumen:
+
+- el seeder no define el motor de base de datos;
+- el modelo o la configuracion default resuelven eso por ti;
+- `connectionName` en el seeder es una excepcion util, no el camino normal.
+
 ## Trabajo Bloqueante y Virtual Threads
 
 El kernel tambien puede registrar un `BlockingTaskRunner` para mover trabajo

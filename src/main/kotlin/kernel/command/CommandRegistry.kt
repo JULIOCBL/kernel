@@ -10,4 +10,6 @@ class CommandRegistry(commands: List<Command>) {
     fun find(name: String): Command? = commandsByName[name]
 
     fun availableCommands(): List<String> = availableCommandNames
+
+    fun all(): List<Command> = availableCommandNames.mapNotNull(commandsByName::get)
 }

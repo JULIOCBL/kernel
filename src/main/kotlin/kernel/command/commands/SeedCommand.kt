@@ -8,6 +8,9 @@ class SeedCommand(
     private val runner: (String?) -> List<String>
 ) : Command {
     override val name: String = "db:seed"
+    override val description: String =
+        "Ejecuta seeders registrados. Ejemplo: ./kernel db:seed --class=LabUserSeeder"
+    override val usage: String = "db:seed [--class=ClassName]"
 
     override fun execute(input: CommandInput): CommandResult {
         return try {

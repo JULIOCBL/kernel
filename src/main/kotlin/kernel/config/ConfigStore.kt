@@ -164,6 +164,38 @@ class ConfigStore(initialValues: Map<String, Any?> = emptyMap()) {
     }
 
     /**
+     * Aplica overrides temporales y restaura el estado anterior al salir.
+     *
+     * Los overrides usan notacion de puntos para apuntar a claves concretas del
+     * store. Mientras el bloque esta activo, cualquier lectura vera los valores
+     * temporales; al finalizar, la configuracion vuelve exactamente al snapshot
+     * previo.
+     */
+    fun <T> withTemporaryOverrides(
+        overrides: Map<String, Any?>,
+        block: () -> T
+    ): T {
+        if (overrides.isEmpty()) {
+            return block()
+        }
+
+        val snapshot = synchronized(lock) {
+            val previous = copyMap(values)
+            applyTemporaryOverrides(overrides)
+            previous
+        }
+
+        return try {
+            block()
+        } finally {
+            synchronized(lock) {
+                values.clear()
+                mergeInto(values, snapshot)
+            }
+        }
+    }
+
+    /**
      * Busca una clave respetando la diferencia entre "no existe" y "existe con
      * valor null".
      */
@@ -302,6 +334,14 @@ class ConfigStore(initialValues: Map<String, Any?> = emptyMap()) {
     private fun requireKeySegments(key: String): List<String> {
         return keySegmentsOrNull(key)
             ?: throw IllegalArgumentException("Configuration keys must not be blank or contain empty segments.")
+    }
+
+    private fun applyTemporaryOverrides(overrides: Map<String, Any?>) {
+        overrides.forEach { (key, value) ->
+            val segments = requireKeySegments(key)
+            val target = ensureParentMap(segments)
+            target[segments.last()] = normalizeValue(value)
+        }
     }
 
     /**

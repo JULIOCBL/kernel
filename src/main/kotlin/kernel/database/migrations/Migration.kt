@@ -407,7 +407,12 @@ abstract class Migration {
         collector = currentCollector
 
         try {
-            block()
+            MigrationQueryContext.withContext(
+                collector = currentCollector,
+                connectionName = connectionName
+            ) {
+                block()
+            }
             return currentCollector.toSql()
         } finally {
             collector = previousCollector

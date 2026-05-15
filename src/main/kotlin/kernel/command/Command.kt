@@ -5,6 +5,10 @@ package kernel.command
  */
 interface Command {
     val name: String
+    val description: String
+        get() = ""
+    val usage: String
+        get() = name
 
     fun execute(input: CommandInput): CommandResult
 }

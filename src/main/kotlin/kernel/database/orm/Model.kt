@@ -46,13 +46,15 @@ abstract class ModelDefinition<M : Model>(
     private val tableName: String? = null,
     private val mapper: (ResultSet) -> M,
     private val connectionName: String? = null,
-    private val primaryKey: String = "id"
+    private val primaryKey: String = "id",
+    private val softDeleteColumn: String? = null
 ) {
     fun query(): QueryBuilder<M> {
         return QueryBuilder(
             table = tableName ?: inferTableName(inferModelSimpleName()),
             rowMapper = mapper,
-            connectionName = connectionName
+            connectionName = connectionName,
+            softDeleteColumn = softDeleteColumn
         )
     }
 
@@ -60,7 +62,29 @@ abstract class ModelDefinition<M : Model>(
         return query().where(column, operator, value)
     }
 
+    fun whereIn(column: String, values: Iterable<Any?>): QueryBuilder<M> {
+        return query().whereIn(column, values)
+    }
+
+    fun whereNotIn(column: String, values: Iterable<Any?>): QueryBuilder<M> {
+        return query().whereNotIn(column, values)
+    }
+
+    fun withTrashed(): QueryBuilder<M> {
+        return query().withTrashed()
+    }
+
+    fun onlyTrashed(): QueryBuilder<M> {
+        return query().onlyTrashed()
+    }
+
     suspend fun all(): List<M> = query().get()
+
+    fun delete(id: Any?): Int {
+        return query()
+            .where(primaryKey, "=", id)
+            .delete()
+    }
 
     open suspend fun find(id: Any?): M? {
         return query()

@@ -14,6 +14,9 @@ class MigrateStatusCommand(
     private val statusResolver: (MigrationStatusOptions) -> List<MigrationStatus>
 ) : Command {
     override val name: String = "migrate:status"
+    override val description: String =
+        "Muestra el estado de las migraciones. Ejemplo: ./kernel migrate:status --database=main"
+    override val usage: String = "migrate:status [--database=name] [--only=name]"
 
     override fun execute(input: CommandInput): CommandResult {
         return try {

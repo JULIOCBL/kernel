@@ -34,4 +34,16 @@ class CommandParserTest {
         assertEquals("true", input.option("seed"))
         assertEquals("UserSeeder", input.option("class"))
     }
+
+    @Test
+    fun `parses short help flag as help option`() {
+        val input = parser.parse(
+            arrayOf("migrate", "-h"),
+            workingDirectory
+        )
+
+        assertEquals("migrate", input.name)
+        assertTrue(input.hasOption("help"))
+        assertEquals("true", input.option("help"))
+    }
 }

@@ -12,6 +12,9 @@ class MigrateRollbackCommand(
     private val runner: (MigrationRollbackOptions) -> List<String>
 ) : Command {
     override val name: String = "migrate:rollback"
+    override val description: String =
+        "Revierte migraciones ya ejecutadas. Ejemplo: ./kernel migrate:rollback --step=1"
+    override val usage: String = "migrate:rollback [--database=name] [--step=N]"
 
     override fun execute(input: CommandInput): CommandResult {
         return try {

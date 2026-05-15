@@ -17,6 +17,10 @@ class MakeMigrationCommand(
     private val stubFactory: MigrationStubFactory = MigrationStubFactory()
 ) : Command {
     override val name: String = "make:migration"
+    override val description: String =
+        "Genera un archivo de migracion Kotlin. Ejemplo: ./kernel make:migration create_users_table --create=users"
+    override val usage: String =
+        "make:migration <name> [--create=table] [--table=table] [--drop=table]"
 
     override fun execute(input: CommandInput): CommandResult {
         val migrationName = input.argument(0)

@@ -52,8 +52,49 @@ object KernelCli {
         registry: CommandRegistry,
         workingDirectory: java.nio.file.Path
     ): CommandResult {
+        if (args.isEmpty() || args.first() in setOf("--help", "-h")) {
+            return CommandResult(
+                exitCode = 0,
+                message = CliHelpFormatter.renderGlobalHelp(registry, "./kernel")
+            )
+        }
+
+        if (args.first() == "help") {
+            val target = args.getOrNull(1)
+            return if (target.isNullOrBlank()) {
+                CommandResult(
+                    exitCode = 0,
+                    message = CliHelpFormatter.renderGlobalHelp(registry, "./kernel")
+                )
+            } else {
+                val command = registry.find(target)
+                    ?: return CommandResult(
+                        exitCode = 1,
+                        message = buildUnknownCommandMessage(target, registry)
+                    )
+
+                CommandResult(
+                    exitCode = 0,
+                    message = CliHelpFormatter.renderCommandHelp(command, "./kernel")
+                )
+            }
+        }
+
         return try {
             val input = CommandParser().parse(args, workingDirectory)
+            if (input.hasOption("help")) {
+                val command = registry.find(input.name)
+                    ?: return CommandResult(
+                        exitCode = 1,
+                        message = buildUnknownCommandMessage(input.name, registry)
+                    )
+
+                return CommandResult(
+                    exitCode = 0,
+                    message = CliHelpFormatter.renderCommandHelp(command, "./kernel")
+                )
+            }
+
             val command = registry.find(input.name)
                 ?: return CommandResult(
                     exitCode = 1,

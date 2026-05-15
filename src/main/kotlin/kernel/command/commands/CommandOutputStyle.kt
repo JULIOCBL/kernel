@@ -10,12 +10,22 @@ internal object CommandOutputStyle {
     }
 
     fun throwableChain(error: Throwable): String {
-        return generateSequence(error) { current -> current.cause }
-            .mapNotNull { current ->
-                current.message?.trim()?.takeIf(String::isNotEmpty)
+        val messages = mutableListOf<String>()
+        var current: Throwable? = error
+
+        while (current != null) {
+            val msg = current.message?.trim()?.takeIf { it.isNotEmpty() }
+            if (msg != null) {
+                // Solo añadimos el mensaje si NO está ya contenido en alguno de los mensajes ya registrados.
+                // Esto evita redundancias como "Error: Connection refused" -> "Connection refused".
+                if (messages.none { it.contains(msg) }) {
+                    messages.add(msg)
+                }
             }
-            .distinct()
-            .joinToString(" -> ")
+            current = current.cause
+        }
+
+        return messages.joinToString(" -> ")
             .ifBlank { error::class.simpleName ?: "Error desconocido" }
     }
 

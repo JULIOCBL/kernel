@@ -12,6 +12,9 @@ class MigrateCommand(
     private val runner: (MigrationRunOptions) -> List<String>
 ) : Command {
     override val name: String = "migrate"
+    override val description: String =
+        "Ejecuta las migraciones pendientes. Ejemplo: ./kernel migrate --database=main"
+    override val usage: String = "migrate [--database=name] [--only=name]"
 
     override fun execute(input: CommandInput): CommandResult {
         return try {

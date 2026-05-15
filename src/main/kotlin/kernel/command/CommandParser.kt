@@ -14,7 +14,9 @@ class CommandParser {
         val options = linkedMapOf<String, String>()
 
         for (token in args.drop(1)) {
-            if (token.startsWith("--")) {
+            if (token == "-h") {
+                options["help"] = "true"
+            } else if (token.startsWith("--")) {
                 val option = token.removePrefix("--")
                 val separatorIndex = option.indexOf('=')
                 if (separatorIndex > 0) {

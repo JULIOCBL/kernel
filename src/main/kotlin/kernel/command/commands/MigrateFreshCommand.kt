@@ -14,6 +14,9 @@ class MigrateFreshCommand(
     private val runner: (database: String?, shouldSeed: Boolean, seederClass: String?) -> MigrateFreshResult
 ) : Command {
     override val name: String = "migrate:fresh"
+    override val description: String =
+        "Recrea el esquema desde cero y vuelve a migrar. Ejemplo: ./kernel migrate:fresh --seed=true"
+    override val usage: String = "migrate:fresh [--database=name] [--seed=true] [--seeder=Class]"
 
     override fun execute(input: CommandInput): CommandResult {
         return try {

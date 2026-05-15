@@ -68,4 +68,39 @@ class KernelCliTest {
         assertEquals("", result.message)
         assertTrue(printed.contains("kernel-bootstrap-stop"))
     }
+
+    @Test
+    fun `run without args shows global help`() {
+        val result = KernelCli.run(
+            args = emptyArray(),
+            registry = registry,
+            workingDirectory = Paths.get("/tmp/kernel")
+        )
+
+        assertEquals(0, result.exitCode)
+        assertTrue(result.message.contains("Uso: ./kernel <comando> [argumentos] [--opciones]"))
+        assertTrue(result.message.contains("Comandos disponibles:"))
+        assertTrue(result.message.contains("make:migration"))
+    }
+
+    @Test
+    fun `command help can be requested globally or per command`() {
+        val global = KernelCli.run(
+            args = arrayOf("help", "make:migration"),
+            registry = registry,
+            workingDirectory = Paths.get("/tmp/kernel")
+        )
+        val perCommand = KernelCli.run(
+            args = arrayOf("make:migration", "--help"),
+            registry = registry,
+            workingDirectory = Paths.get("/tmp/kernel")
+        )
+
+        assertEquals(0, global.exitCode)
+        assertTrue(global.message.contains("Comando: make:migration"))
+        assertTrue(global.message.contains("Uso: ./kernel make:migration"))
+
+        assertEquals(0, perCommand.exitCode)
+        assertTrue(perCommand.message.contains("Comando: make:migration"))
+    }
 }

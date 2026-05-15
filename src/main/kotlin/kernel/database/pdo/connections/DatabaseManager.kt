@@ -51,10 +51,17 @@ class DatabaseManager private constructor(
     fun connect(name: String? = null): Connection {
         val targetConfig = connectionConfig(name)
 
-        return if (targetConfig.pool.enabled) {
-            poolFor(targetConfig).connection
-        } else {
-            targetConfig.open()
+        return try {
+            if (targetConfig.pool.enabled) {
+                poolFor(targetConfig).connection
+            } else {
+                targetConfig.open()
+            }
+        } catch (error: Throwable) {
+            throw IllegalStateException(
+                "Fallo al conectar a la base de datos [${targetConfig.name}]: ${error.message}",
+                error
+            )
         }
     }
 
