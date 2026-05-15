@@ -631,54 +631,21 @@ En otras palabras:
 - solo `desktop` reacciona a links externos y a segunda instancia;
 - `api` existe como router interno, no como protocolo publico del SO.
 
-## Requests y Validacion
+## Documentación Detallada por Capa
 
-La capa HTTP del kernel ya incluye:
+Para más detalles sobre cada componente del Kernel, consulta las siguientes guías técnicas:
 
-- `Request`
-- `FormRequest`
-- `HttpKernel`
-- `ExceptionHandler`
-- middlewares HTTP
-- validacion automatica antes del controlador
-
-Guia detallada:
-
-- [docs/request.md](./docs/request.md)
-
-Esa guia cubre:
-
-- helpers disponibles en `Request`
-- uso de archivos subidos
-- reglas disponibles en `FormRequest`
-- `safe()`, `validated()` y `validatedTyped()`
-- ejemplos en middleware y controlador
-
-## Localizacion
-
-La capa de i18n del kernel ya incluye:
-
-- `LangFile`
-- `LangStore`
-- helpers globales:
-  - `lang(...)`
-  - `trans(...)`
-  - `` `__`(...) ``
-- deteccion de locale desde `Accept-Language`
-- integracion nativa con `FormRequest`
-
-Guia detallada:
-
-- [docs/lang.md](./docs/lang.md)
-
-Esa guia cubre:
-
-- como definir archivos de idioma en Kotlin
-- como cargarlos en `Application`
-- como usar catálogos para que no crezcan los providers
-- como traducir con reemplazos dinamicos
-- como funciona el locale por request
-- como resuelve mensajes de validacion por defecto
+- [**Foundation**](./docs/foundation.md): Ciclo de vida, configuración y entorno.
+- [**Database**](./docs/database.md): Query Builder, transacciones y migraciones.
+- [**Routing & HTTP**](./docs/routing_http.md): Rutas, controladores y respuestas.
+- [**Request & FormRequest**](./docs/request.md): Entrada de datos, validación y archivos.
+- [**Console (CLI)**](./docs/console.md): Creación y ejecución de comandos.
+- [**Service Providers**](./docs/providers.md): Registro y arranque de servicios.
+- [**Localization (Lang)**](./docs/lang.md): Traducciones y locales.
+- [**Mail**](./docs/mail.md): Envío de correos electrónicos.
+- [**Security (KSR)**](./docs/security.md): Runtime seguro y llaves nativas.
+- [**Concurrency**](./docs/concurrency.md): Tareas bloqueantes y Virtual Threads.
+- [**Utilities & Debugging**](./docs/utilities.md): Herramientas de depuración (`dump`, `dd`).
 
 ## Que Debe Repetirse En Cualquier App
 

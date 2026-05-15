@@ -34,23 +34,35 @@ Permite construir consultas SQL de forma fluida y segura contra inyecciones SQL.
 ### Selección y Filtros
 - `select("col1", "col2")`: Elige qué columnas traer.
 - `where(col, op, val)`: Filtro básico (e.g., `where("age", ">", 18)`).
-- `whereIn(col, list)` / `whereNotIn(col, list)`: Filtros de conjunto.
-- `whereNull(col)` / `whereNotNull(col)`: Filtros de nulidad.
-- `orWhere(...)`: Filtros con lógica OR.
-- `where { ... }`: Agrupación de filtros (paréntesis en SQL).
+- `orWhere(col, op, val)`: Filtro con lógica OR.
+- `where { ... }` / `orWhere { ... }`: Agrupación de filtros (paréntesis en SQL).
+- `whereIn(col, list)` / `orWhereIn(col, list)`: Filtro de conjunto.
+- `whereNotIn(col, list)` / `orWhereNotIn(col, list)`: Filtro de exclusión de conjunto.
+- `whereNull(col)` / `orWhereNull(col)`: Filtros de nulidad.
+- `whereNotNull(col)` / `orWhereNotNull(col)`: Filtros de no-nulidad.
+
+### Joins
+- `join(table, left, op, right)`: INNER JOIN.
+- `leftJoin(table, left, op, right)`: LEFT JOIN.
 
 ### Orden y Límite
 - `orderBy(col, dir)` / `orderByDesc(col)`.
 - `latest(col)` / `oldest(col)`.
+- `reorder()`: Elimina todos los `orderBy` previos.
 - `limit(n)` / `offset(n)`.
+
+### Soft Deletes (Si el modelo lo soporta)
+- `withTrashed()`: Incluye registros borrados.
+- `onlyTrashed()`: Trae solo registros borrados.
+- `withoutTrashed()`: Filtra registros borrados (comportamiento por defecto).
 
 ### Operaciones Terminales (Suspend)
 - `get()`: Ejecuta y devuelve una lista de resultados.
 - `first()`: Devuelve el primer resultado o null.
 - `insert(map)`: Inserta un registro.
 - `update(map)`: Actualiza registros (requiere un `where`).
-- `delete()`: Elimina registros (requiere un `where`).
-- `upsert(records, uniqueBy, updateColumns)`: Inserta o actualiza en conflicto.
+- `delete()`: Elimina registros (requiere un `where`). Si el modelo tiene soft delete, hace un `UPDATE`.
+- `upsert(records, uniqueBy, updateColumns)`: Inserta o actualiza masivamente en conflicto.
 
 ---
 

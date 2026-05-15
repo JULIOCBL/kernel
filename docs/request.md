@@ -69,18 +69,19 @@ class CreateUserRequest(
 
 ### Input General
 
-- `all()`
-- `input(key, default)`
+- `all()`: Devuelve todo el input combinado (Body + Query + Route Params).
+- `input(key, default)`: Busca en body, query y route params.
 - `string(key, default)`
 - `int(key, default)`
 - `long(key, default)`
 - `double(key, default)`
-- `boolean(key, default)`
-- `array(key)`
+- `boolean(key, default)`: Soporta "true", "1", "yes", "on" como `true`.
+- `array(key)` / `list(key)`: Convierte un String separado por comas en `List<String>`.
+- `map(key)`: Convierte un String formato JSON `{...}` o `key:val,key2:val2` en `Map<String, String>`.
+- `enum(key, KClass<E>, default)`: Convierte el input a un valor de un Enum.
 - `only(vararg keys)`
 - `except(vararg keys)`
-- `collect()`
-- `collect(key)`
+- `collect()` / `collect(key)`
 - `keys()`
 
 Ejemplo:
@@ -90,15 +91,17 @@ val name = request.string("name")
 val page = request.int("page", 1)
 val active = request.boolean("active", false)
 val tags = request.array("tags")
+val metadata = request.map("metadata")
+val status = request.enum("status", UserStatus::class)
 ```
 
 ### Query, Body y JSON
 
-- `query()`
+- `query()`: Todos los parámetros de la URL.
 - `query(key, default)`
-- `post()`
+- `post()`: Todo el cuerpo de la petición.
 - `post(key, default)`
-- `json()`
+- `json()`: Sinónimo de `post()`.
 - `json(key, default)`
 
 Ejemplo:
@@ -114,12 +117,12 @@ val name = request.json("name")
 
 - `header(key, default)`
 - `headers()`
-- `accepts(...)`
+- `accepts(type)` / `accepts(list)`: Verifica si el cliente acepta ciertos tipos de contenido.
 - `acceptsJson()`
 - `expectsJson()`
 - `wantsJson()`
-- `prefers(listOf(...))`
-- `bearerToken()`
+- `prefers(list)`: Elige el mejor tipo de contenido de una lista según la cabecera `Accept`.
+- `bearerToken()`: Extrae el token de la cabecera `Authorization: Bearer ...`.
 
 Ejemplo:
 
@@ -134,12 +137,11 @@ if (request.acceptsJson()) {
 
 ### Presencia de Valores
 
-- `has(key)`
+- `has(key)`: Existe y no está vacío.
 - `hasAny(keys)`
-- `filled(key)`
-- `isNotFilled(key)`
-- `isNotFilled(keys)`
-- `missing(key)`
+- `filled(key)`: Existe y no es nulo/blanco.
+- `isNotFilled(key)` / `isNotFilled(keys)`
+- `missing(key)`: No está presente en el input.
 - `whenHas(key, callback, default)`
 - `whenFilled(key, callback, default)`
 - `whenMissing(key, callback, default)`
@@ -154,8 +156,8 @@ request.whenFilled("search", { value ->
 
 ### Mutacion Del Input
 
-- `merge(mapOf(...))`
-- `mergeIfMissing(mapOf(...))`
+- `merge(map)`: Agrega o sobreescribe valores en el cuerpo de la petición.
+- `mergeIfMissing(map)`: Agrega solo si la clave no existe.
 
 Ejemplo:
 
@@ -166,18 +168,17 @@ request.mergeIfMissing(mapOf("locale" to "es"))
 
 ### URL y Segmentos
 
-- `method()`
-- `isMethod("POST")`
-- `path()` -> sin slash inicial
-- propiedad `path` -> path crudo recibido
-- `url()`
-- `fullUrl()`
-- `fullUrlWithQuery(...)`
-- `fullUrlWithoutQuery(...)`
-- `segments()`
-- `segment(index, default)`
+- `method()`: Obtiene el verbo HTTP (GET, POST, etc.).
+- `isMethod("POST")`: Verifica el verbo.
+- `path()`: Devuelve la ruta sin el slash inicial.
+- `url()`: URL base sin query string.
+- `fullUrl()`: URL completa incluyendo query string.
+- `fullUrlWithQuery(map)`: URL completa fusionando nuevos parámetros.
+- `fullUrlWithoutQuery(vararg keys)`: URL completa omitiendo ciertos parámetros.
+- `segments()`: Lista de partes de la URL.
+- `segment(index, default)`: Obtiene un segmento específico (index inicia en 1).
 - `host()`
-- `ip()`
+- `ip()`: Detecta la IP considerando proxies (`X-Forwarded-For`).
 
 Ejemplo:
 
@@ -189,13 +190,14 @@ val method = request.method()
 
 ### Rutas y Atributos
 
-- `route()`
-- `route(key)`
-- `attribute<T>(key)`
-- `setAttribute(key, value)`
+- `route()`: Todos los parámetros resueltos de la ruta.
+- `route(key)`: Parámetro específico de la ruta (ej: `{id}`).
+- `attribute<T>(key)`: Recupera un atributo dinámico.
+- `setAttribute(key, value)`: Define un atributo dinámico.
 - `attributes()`
-- `user()`
-- `setUser(user)`
+- `user()`: Helper para `attribute("user")`.
+- `setUser(user)`: Helper para `setAttribute("user", user)`.
+- `locale()` / `setLocale(locale)`: Gestiona el idioma de la petición.
 
 Ejemplo:
 
@@ -210,21 +212,21 @@ val currentUser = request.user()
 
 Helpers:
 
-- `file(key)`
-- `hasFile(key)`
+- `file(key)`: Obtiene el archivo subido.
+- `hasFile(key)`: Verifica si existe un archivo válido en el campo.
 
 `UploadedFile` expone:
 
-- `field`
-- `originalName`
-- `contentType`
-- `bytes`
-- `size`
-- `extension`
+- `field`: Nombre del campo en el formulario.
+- `originalName`: Nombre original del archivo.
+- `contentType`: MIME type.
+- `bytes`: Contenido crudo.
+- `size`: Tamaño en bytes.
+- `extension`: Extensión inferida (jpg, png, pdf, etc.).
 - `isValid()`
-- `path()`
-- `store(directory)`
-- `storeAs(directory, fileName)`
+- `path()`: Ruta temporal si existe.
+- `store(directory, disk)`: Guarda el archivo con un nombre UUID.
+- `storeAs(directory, fileName, disk)`: Guarda el archivo con nombre específico.
 
 Ejemplo:
 
@@ -237,23 +239,23 @@ if (avatar != null && avatar.isValid()) {
 
 ## FormRequest
 
-`FormRequest` extiende `Request` y agrega autorizacion + validacion.
+`FormRequest` extiende `Request` y agrega autorizacion + validacion automática.
 
 Hooks disponibles:
 
-- `authorize()`
-- `rules()`
-- `casts()`
-- `messages()`
-- `validationAttributes()`
-- `prepareForValidation()`
-- `passedValidation()`
+- `authorize()`: Debe devolver `true` para permitir la petición.
+- `rules()`: Mapa de reglas de validación.
+- `casts()`: Fuerza tipos de datos al usar `validatedTyped()` (ej: `"age" to "int"`).
+- `messages()`: Mensajes de error personalizados.
+- `validationAttributes()`: Nombres amigables para los campos en los errores.
+- `prepareForValidation()`: Se ejecuta antes de validar. Ideal para `merge()`.
+- `passedValidation()`: Se ejecuta después de una validación exitosa.
 
-Helpers de salida:
+Salida de datos:
 
-- `validated()`
-- `validatedTyped()`
-- `safe()`
+- `validated()`: Devuelve un `ValidatedInput` con los valores crudos (`Map<String, String?>`).
+- `validatedTyped()`: Devuelve un `ValidatedInput` con valores casteados según las reglas o `casts()`.
+- `safe()`: Sinónimo de `validatedTyped()`.
 
 Ejemplo completo:
 
@@ -262,11 +264,7 @@ class StoreTicketRequest(
     request: Request
 ) : FormRequest(request) {
     override fun prepareForValidation() {
-        merge(
-            mapOf(
-                "active" to input("active").orEmpty().trim().lowercase()
-            )
-        )
+        merge(mapOf("active" to input("active").orEmpty().trim().lowercase()))
     }
 
     override fun rules(): Map<String, String> {
@@ -277,23 +275,24 @@ class StoreTicketRequest(
         )
     }
 
+    override fun casts(): Map<String, String> {
+        return mapOf("amount" to "double")
+    }
+
     override fun messages(): Map<String, String> {
-        return mapOf(
-            "user_id.exists" to "El usuario indicado no existe."
-        )
+        return mapOf("user_id.exists" to "El usuario indicado no existe.")
     }
 }
 ```
 
-Uso:
+Uso en Controlador:
 
 ```kotlin
 class TicketController : Controller() {
     fun store(request: StoreTicketRequest) = json(
         payload = mapOf(
-            "raw" to request.validated(),
-            "typed" to request.validatedTyped(),
-            "safe" to request.safe().only("user_id", "amount")
+            "raw" to request.validated().all(),
+            "amount" to request.safe().getValue("amount") // Ya es Double
         ),
         status = 201
     )
