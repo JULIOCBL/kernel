@@ -118,11 +118,8 @@ private object DebugOutput {
     }
 
     private fun isDebugInfrastructure(className: String): Boolean {
-        return className == Debug::class.java.name ||
-                className == DumpAndDieSignal::class.java.name ||
-                className == "kernel.debug.DebugOutput" ||
-                className == "kernel.debug.AnsiColor" ||
-                className.startsWith("kernel.debug.DebugKt")
+        return className.startsWith("kernel.debug.") ||
+                className == DumpAndDieSignal::class.java.name
     }
 }
 
