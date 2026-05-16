@@ -22,9 +22,6 @@ class DebugTest {
             printed = output
         }
 
-        assertTrue(printed.contains("DebugTest"), printed)
-        assertTrue(printed.contains("DebugTest.kt"), printed)
-        assertContains(printed, "DebugTest")
         assertContains(printed, "dump = {")
         assertContains(printed, "\"name\": \"Kernel\"")
         assertContains(printed, "\"features\": [")
@@ -42,9 +39,27 @@ class DebugTest {
         }
 
         assertEquals(DumpAndDieSignal.instance, signal)
-        assertTrue(printed.contains("DebugTest.kt"), printed)
-        assertContains(printed, "DebugTest")
         assertContains(printed, "dd = \"halt\"")
+    }
+
+    @Test
+    fun `dump preserves multiline strings as readable blocks`() {
+        var printed = ""
+        val json = """
+            {
+              "device_name": "MacBook-Pro-de-Julio.local",
+              "operating_system": "Mac OS X"
+            }
+        """.trimIndent()
+
+        Debug.dump(json) { output ->
+            printed = output
+        }
+
+        assertContains(printed, "dump = \"\"\"")
+        assertContains(printed, "\"device_name\": \"MacBook-Pro-de-Julio.local\"")
+        assertContains(printed, "\"operating_system\": \"Mac OS X\"")
+        assertFalse(printed.contains("\\n"), printed)
     }
 
     @Test

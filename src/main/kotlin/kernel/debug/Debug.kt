@@ -203,6 +203,17 @@ private object DebugFormatter {
 
     private fun renderString(value: String): String {
         val displayed = truncateString(value)
+        val isMultiline = displayed.contains('\n')
+
+        if (isMultiline) {
+            val suffix = if (displayed.length < value.length) {
+                "\n\"\"\" (truncated, length=${value.length})"
+            } else {
+                "\n\"\"\""
+            }
+
+            return "\"\"\"\n$displayed$suffix"
+        }
 
         val suffix = if (displayed.length < value.length) {
             "\" (truncated, length=${value.length})"

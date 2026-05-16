@@ -80,3 +80,52 @@ class MyServiceProvider(app: Application) : ServiceProvider(app) {
     }
 }
 ```
+
+---
+
+## Sistema (`MachineInformation`)
+
+El Kernel provee utilidades seguras para obtener información estable y única de la máquina local (Windows, macOS, Linux) sin bloquear el hilo principal.
+
+### Uso Básico
+
+Se encuentra en `kernel.foundation.system.MachineInformation`. Los valores se cachean automáticamente tras la primera llamada para maximizar el rendimiento.
+
+```kotlin
+import kernel.foundation.system.MachineInformation
+
+// Obtener todo el conjunto de datos tipado (MachineInformationData)
+val data = MachineInformation.get()
+println(data.deviceName)
+println(data.operatingSystem)
+
+// Obtener valores individuales mediante métodos helper
+val fingerprint = MachineInformation.getFingerprint()
+val macAddress = MachineInformation.getMacAddress()
+val cpu = MachineInformation.getCpuName()
+val disk = MachineInformation.getDiskSerial()
+val machineId = MachineInformation.getMachineId()
+
+// Obtener valores mediante constantes oficiales
+val os = MachineInformation.get(MachineInformation.OPERATING_SYSTEM)
+```
+
+### Exportación
+
+La clase está diseñada para facilitar integraciones como envío de telemetría o validaciones de licencia, permitiendo conversiones a mapas o a un JSON nativo estricto (sin dependencias extra):
+
+```kotlin
+// Retorna un Map<String, String>
+val map = MachineInformation.toMap()
+
+// Retorna un String en formato JSON válido
+val json = MachineInformation.toJson()
+```
+
+### Fingerprint (Huella Digital)
+
+La propiedad `fingerprint` contiene un hash `SHA-256` consistente y reproducible que identifica de forma única la instancia actual. 
+
+Se calcula en base a la concatenación separada por pipes (`|`) de:
+`machine_id|disk_serial|cpu|mac|hostname`
+
