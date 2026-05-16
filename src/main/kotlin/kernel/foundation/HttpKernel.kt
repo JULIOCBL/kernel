@@ -24,7 +24,6 @@ open class HttpKernel(
         router: ApiRouter
     ): KernelResponse {
         return try {
-            request.setLocale(resolveLocale(request))
             val match = router.match(request.method, request.target)
                 ?: return JsonResponse(
                     payload = mapOf(
@@ -91,42 +90,5 @@ open class HttpKernel(
         return aliases
             .distinct()
             .sortedWith(compareBy({ indexedPriority[it] ?: Int.MAX_VALUE }, { aliases.indexOf(it) }))
-    }
-
-    private fun resolveLocale(request: Request): String {
-        val configuredLocale = app.config.string("app.locale", "en").ifBlank { "en" }
-        val loadedLocales = app.lang.locales()
-        val acceptedHeader = request.header("accept-language").orEmpty()
-
-        if (acceptedHeader.isBlank()) {
-            return configuredLocale
-        }
-
-        val acceptedLocales = acceptedHeader
-            .split(',')
-            .mapNotNull { token ->
-                val parts = token.trim().split(";q=", limit = 2)
-                val locale = parts.firstOrNull()
-                    ?.trim()
-                    ?.replace('_', '-')
-                    ?.lowercase()
-                    ?.takeIf(String::isNotBlank)
-                    ?: return@mapNotNull null
-                val quality = parts.getOrNull(1)?.trim()?.toDoubleOrNull() ?: 1.0
-                locale to quality
-            }
-            .sortedByDescending { it.second }
-            .map { it.first }
-
-        acceptedLocales.forEach { candidate ->
-            val normalized = candidate.substringBefore('-')
-            when {
-                loadedLocales.contains(candidate) -> return candidate
-                loadedLocales.contains(normalized) -> return normalized
-                loadedLocales.isEmpty() -> return normalized
-            }
-        }
-
-        return configuredLocale
     }
 }

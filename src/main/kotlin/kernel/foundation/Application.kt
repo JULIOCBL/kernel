@@ -10,6 +10,7 @@ import kernel.lang.LangFile
 import kernel.lang.LangStore
 import kernel.providers.ProviderFactory
 import kernel.providers.ServiceProvider
+import kernel.session.Session
 import java.nio.file.Path
 import kotlin.reflect.KClass
 
@@ -143,7 +144,9 @@ class Application(
      * en `register()` o `boot()`.
      */
     fun initializeRuntime(): Application {
-        return ApplicationRuntime.initialize(this)
+        return ApplicationRuntime.initialize(this).also {
+            Session.bootstrap(it)
+        }
     }
 
     /**

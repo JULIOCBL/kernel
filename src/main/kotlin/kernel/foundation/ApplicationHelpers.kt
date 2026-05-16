@@ -1,6 +1,7 @@
 package kernel.foundation
 
 import kernel.http.HttpRequestRuntime
+import kernel.session.Session
 import java.nio.file.Path
 
 /**
@@ -26,6 +27,7 @@ fun lang(
     val application = app()
     val effectiveLocale = locale
         ?: currentRequestLocale()
+        ?: currentSessionLocale()
         ?: application.config.string("app.locale", "en")
     val fallbackLocale = application.config.string("app.fallback_locale", "en")
 
@@ -58,4 +60,8 @@ fun `__`(
 
 private fun currentRequestLocale(): String? {
     return runCatching { HttpRequestRuntime.current().locale() }.getOrNull()
+}
+
+private fun currentSessionLocale(): String? {
+    return runCatching { Session.get<String>("locale") }.getOrNull()
 }

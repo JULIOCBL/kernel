@@ -105,22 +105,30 @@ class HttpKernelTest {
     }
 
     @Test
-    fun `http kernel resolves locale from accept language header`() {
+    fun `http kernel lets middleware resolve locale from accept language header`() {
         val app = Application(Paths.get(".")).apply {
             config.set("app.locale", "en")
-            loadLang(TestSpanishValidationLang)
         }
-        val kernel = HttpKernel(app)
+        val kernel = object : HttpKernel(app) {
+            override val middleware: List<(Application) -> HttpMiddleware> = listOf(
+                { _ ->
+                    HttpMiddleware { request, next ->
+                        request.setLocale("es")
+                        next(request)
+                    }
+                }
+            )
+        }
         val router = ApiRouter("api").also { routed ->
             routed.get(
                 path = "locale",
                 action = {
-                JsonResponse(
-                    payload = mapOf(
-                        "locale" to HttpRequestRuntime.current().locale().orEmpty()
-                    ),
-                    status = 200
-                )
+                    JsonResponse(
+                        payload = mapOf(
+                            "locale" to HttpRequestRuntime.current().locale().orEmpty()
+                        ),
+                        status = 200
+                    )
                 }
             )
         }
@@ -183,11 +191,4 @@ class HttpKernelTest {
         assertEquals(500, response.status)
         assertEquals("detalle interno sensible", (response.payload as Map<*, *>)["message"])
     }
-}
-
-private object TestSpanishValidationLang : kernel.lang.LangFile {
-    override val locale: String = "es"
-    override val namespace: String = "validation"
-
-    override fun load(): Map<String, Any?> = mapOf("required" to "El campo :attribute es obligatorio.")
 }

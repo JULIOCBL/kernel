@@ -7,6 +7,7 @@ import kernel.env.Env
 import kernel.lang.LangFile
 import kernel.providers.ProviderFactory
 import kernel.providers.ServiceProvider
+import kernel.session.Session
 import java.nio.file.Files
 import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
@@ -22,6 +23,7 @@ class ApplicationTest {
     fun resetRuntime() {
         ApplicationRuntime.resetForTests()
         ApplicationProcessLock.resetForTests()
+        Session.resetForTests()
         ConstructorProbeProvider.constructorCalls = 0
     }
 
