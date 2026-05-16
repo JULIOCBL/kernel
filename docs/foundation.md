@@ -129,3 +129,60 @@ La propiedad `fingerprint` contiene un hash `SHA-256` consistente y reproducible
 Se calcula en base a la concatenación separada por pipes (`|`) de:
 `machine_id|disk_serial|cpu|mac|hostname`
 
+---
+
+## Localización (`SystemLocale`)
+
+El Kernel provee utilidades de altísimo rendimiento para obtener la configuración regional e idioma actual del sistema utilizando únicamente APIs nativas de la JVM, garantizando la compatibilidad entre plataformas (Windows, macOS, Linux) sin ejecutar procesos en segundo plano.
+
+### Uso Básico
+
+Se encuentra en `kernel.foundation.system.SystemLocale`. Al igual que `MachineInformation`, sus valores se cachean.
+
+```kotlin
+import kernel.foundation.system.SystemLocale
+
+// Obtener todo el conjunto de datos tipado (SystemLocaleData)
+val localeData = SystemLocale.get()
+println(localeData.language)
+println(localeData.timezone)
+
+// Obtener valores individuales mediante métodos helper
+val language = SystemLocale.getLanguage()
+val country = SystemLocale.getCountry()
+val locale = SystemLocale.getLocale()
+val tz = SystemLocale.getTimezone()
+val charset = SystemLocale.getCharset()
+
+// Obtener valores mediante constantes oficiales
+val displayLang = SystemLocale.get(SystemLocale.DISPLAY_LANGUAGE)
+```
+
+### Exportación
+
+Al igual que otras utilidades estáticas del sistema, soporta conversión nativa sin depender de librerías como Gson/Jackson:
+
+```kotlin
+// Retorna un Map<String, String>
+val localeMap = SystemLocale.toMap()
+
+// Retorna un String en formato JSON válido
+val localeJson = SystemLocale.toJson()
+```
+
+### Observabilidad (Reactividad)
+
+La clase implementa un patrón `Observer` de alto rendimiento usando **Virtual Threads** como demonios. Esto permite reaccionar a cambios en las preferencias del sistema operativo en tiempo real sin congelar la interfaz ni reiniciar la app.
+
+```kotlin
+// Registrar un listener para ser notificado de cambios (alias: addListener)
+SystemLocale.onChange { oldLocale, newLocale ->
+    println("El usuario cambió el idioma de ${oldLocale.language} a ${newLocale.language}")
+    
+    // Aquí puedes disparar la recarga de traducciones, 
+    // re-renderizar Vistas de Compose, etc.
+}
+```
+
+> [!NOTE]
+> El monitor de concurrencia está inactivo por defecto y solo se enciende (consume un Virtual Thread) si se registra algún listener o se hace una petición de datos.
