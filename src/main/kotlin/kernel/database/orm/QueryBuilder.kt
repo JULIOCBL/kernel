@@ -79,12 +79,12 @@ class QueryBuilder<T>(
 
     fun select(vararg columns: String): QueryBuilder<T> {
         selectedColumns.clear()
-        selectedColumns.addAll(
-            columns
-                .map(String::trim)
-                .filter(String::isNotBlank)
-                .map(::sanitizeProjection)
-        )
+        for (i in columns.indices) {
+            val token = columns[i].trim()
+            if (token.isNotEmpty()) {
+                selectedColumns.add(sanitizeProjection(token))
+            }
+        }
         return this
     }
 
@@ -290,9 +290,23 @@ class QueryBuilder<T>(
         }
 
         val normalizedValues = normalizeAssignmentValues(values)
-        val columns = normalizedValues.keys.joinToString(", ")
-        val placeholders = normalizedValues.keys.joinToString(", ") { "?" }
-        val sql = "INSERT INTO $normalizedTable ($columns) VALUES ($placeholders)"
+        val sql = buildString {
+            append("INSERT INTO ")
+            append(normalizedTable)
+            append(" (")
+            var i = 0
+            for (key in normalizedValues.keys) {
+                if (i > 0) append(", ")
+                append(key)
+                i++
+            }
+            append(") VALUES (")
+            for (j in 0 until normalizedValues.size) {
+                if (j > 0) append(", ")
+                append("?")
+            }
+            append(")")
+        }
 
         return DB.withConnection(connectionName) { connection ->
             connection.prepareStatement(sql).use { statement ->
@@ -311,9 +325,17 @@ class QueryBuilder<T>(
         }
 
         val normalizedValues = normalizeAssignmentValues(values)
-        val assignments = normalizedValues.keys.joinToString(", ") { column -> "$column = ?" }
         val sql = buildString {
-            append("UPDATE $normalizedTable SET $assignments")
+            append("UPDATE ")
+            append(normalizedTable)
+            append(" SET ")
+            var i = 0
+            for (key in normalizedValues.keys) {
+                if (i > 0) append(", ")
+                append(key)
+                append(" = ?")
+                i++
+            }
             append(buildWhereSql())
         }
 
@@ -407,26 +429,50 @@ class QueryBuilder<T>(
     }
 
     internal fun buildSelectSql(): String {
-        val projection = if (selectedColumns.isEmpty()) "*" else selectedColumns.joinToString(", ")
-        val joinSql = joins.joinToString(separator = " ") { join ->
-            "${join.type} ${join.table} ON ${join.left} ${join.operator} ${join.right}"
-        }.takeIf(String::isNotBlank)?.let { " $it" }.orEmpty()
-        val orderBySql = orderByClauses.takeIf { it.isNotEmpty() }?.joinToString(
-            prefix = " ORDER BY ",
-            separator = ", "
-        ) { clause ->
-            "${clause.column} ${clause.direction}"
-        }.orEmpty()
-        val limitSql = limitValue?.let { " LIMIT $it" }.orEmpty()
-        val offsetSql = offsetValue?.let { " OFFSET $it" }.orEmpty()
-
         return buildString {
-            append("SELECT $projection FROM $normalizedTable")
-            append(joinSql)
+            append("SELECT ")
+            if (selectedColumns.isEmpty()) {
+                append("*")
+            } else {
+                for (i in selectedColumns.indices) {
+                    if (i > 0) append(", ")
+                    append(selectedColumns[i])
+                }
+            }
+            append(" FROM ")
+            append(normalizedTable)
+
+            if (joins.isNotEmpty()) {
+                for (i in joins.indices) {
+                    val join = joins[i]
+                    append(" ")
+                    append(join.type)
+                    append(" ")
+                    append(join.table)
+                    append(" ON ")
+                    append(join.left)
+                    append(" ")
+                    append(join.operator)
+                    append(" ")
+                    append(join.right)
+                }
+            }
+
             append(buildWhereSql())
-            append(orderBySql)
-            append(limitSql)
-            append(offsetSql)
+
+            if (orderByClauses.isNotEmpty()) {
+                append(" ORDER BY ")
+                for (i in orderByClauses.indices) {
+                    if (i > 0) append(", ")
+                    val clause = orderByClauses[i]
+                    append(clause.column)
+                    append(" ")
+                    append(clause.direction)
+                }
+            }
+
+            limitValue?.let { append(" LIMIT ").append(it) }
+            offsetValue?.let { append(" OFFSET ").append(it) }
         }
     }
 
@@ -436,32 +482,39 @@ class QueryBuilder<T>(
             return ""
         }
 
-        val segments = buildList {
+        return buildString {
+            append(" WHERE ")
+            var hasPrevious = false
             if (whereNodes.isNotEmpty()) {
-                add(compileWhereNodes(whereNodes, literalValues))
+                append(compileWhereNodes(whereNodes, literalValues))
+                hasPrevious = true
             }
-            scopeClause?.let(::add)
+            if (scopeClause != null) {
+                if (hasPrevious) append(" AND ")
+                append(scopeClause)
+            }
         }
-
-        return " WHERE ${segments.joinToString(" AND ")}"
     }
 
     private fun compileWhereNodes(
         nodes: List<WhereNode>,
         literalValues: Boolean
     ): String {
-        return nodes.mapIndexed { index, node ->
-            val compiled = when (node) {
-                is WhereClause -> compileWhereClause(node, literalValues)
-                is WhereGroup -> "(${compileWhereNodes(node.nodes, literalValues)})"
+        return buildString {
+            for (i in nodes.indices) {
+                val node = nodes[i]
+                val compiled = when (node) {
+                    is WhereClause -> compileWhereClause(node, literalValues)
+                    is WhereGroup -> "(${compileWhereNodes(node.nodes, literalValues)})"
+                }
+                if (i > 0) {
+                    append(" ")
+                    append(node.boolean)
+                    append(" ")
+                }
+                append(compiled)
             }
-
-            if (index == 0) {
-                compiled
-            } else {
-                "${node.boolean} $compiled"
-            }
-        }.joinToString(" ")
+        }
     }
 
     private fun bindWhereValues(statement: PreparedStatement, offset: Int) {
@@ -721,37 +774,70 @@ class QueryBuilder<T>(
         val normalizedColumns = columns.map(::sanitizeIdentifier).distinct()
         val normalizedUniqueBy = uniqueBy.map(::sanitizeIdentifier).distinct()
         val normalizedUpdateColumns = updateColumns.map(::sanitizeIdentifier).distinct()
-        val placeholders = normalizedColumns.joinToString(", ") { "?" }
-        val valuesSql = List(recordCount) { "($placeholders)" }.joinToString(", ")
-        val columnsSql = normalizedColumns.joinToString(", ")
-
-        return when (driverId.lowercase()) {
-            "pgsql" -> {
-                val conflictSql = normalizedUniqueBy.joinToString(", ")
-                val actionSql = if (normalizedUpdateColumns.isEmpty()) {
-                    "DO NOTHING"
-                } else {
-                    val assignments = normalizedUpdateColumns.joinToString(", ") { column ->
-                        "$column = EXCLUDED.$column"
-                    }
-                    "DO UPDATE SET $assignments"
-                }
-
-                "INSERT INTO $normalizedTable ($columnsSql) VALUES $valuesSql ON CONFLICT ($conflictSql) $actionSql"
+        
+        return buildString {
+            append("INSERT INTO ")
+            append(normalizedTable)
+            append(" (")
+            for (i in normalizedColumns.indices) {
+                if (i > 0) append(", ")
+                append(normalizedColumns[i])
             }
-            "mariadb" -> {
-                val assignments = if (normalizedUpdateColumns.isEmpty()) {
-                    val keepColumn = normalizedUniqueBy.first()
-                    "$keepColumn = $keepColumn"
-                } else {
-                    normalizedUpdateColumns.joinToString(", ") { column ->
-                        "$column = VALUES($column)"
+            append(") VALUES ")
+            
+            val placeholders = buildString {
+                for (i in normalizedColumns.indices) {
+                    if (i > 0) append(", ")
+                    append("?")
+                }
+            }
+            
+            for (i in 0 until recordCount) {
+                if (i > 0) append(", ")
+                append("(")
+                append(placeholders)
+                append(")")
+            }
+
+            when (driverId.lowercase()) {
+                "pgsql" -> {
+                    append(" ON CONFLICT (")
+                    for (i in normalizedUniqueBy.indices) {
+                        if (i > 0) append(", ")
+                        append(normalizedUniqueBy[i])
+                    }
+                    append(") ")
+                    if (normalizedUpdateColumns.isEmpty()) {
+                        append("DO NOTHING")
+                    } else {
+                        append("DO UPDATE SET ")
+                        for (i in normalizedUpdateColumns.indices) {
+                            if (i > 0) append(", ")
+                            append(normalizedUpdateColumns[i])
+                            append(" = EXCLUDED.")
+                            append(normalizedUpdateColumns[i])
+                        }
                     }
                 }
-
-                "INSERT INTO $normalizedTable ($columnsSql) VALUES $valuesSql ON DUPLICATE KEY UPDATE $assignments"
+                "mariadb" -> {
+                    append(" ON DUPLICATE KEY UPDATE ")
+                    if (normalizedUpdateColumns.isEmpty()) {
+                        val keepColumn = normalizedUniqueBy.first()
+                        append(keepColumn)
+                        append(" = ")
+                        append(keepColumn)
+                    } else {
+                        for (i in normalizedUpdateColumns.indices) {
+                            if (i > 0) append(", ")
+                            append(normalizedUpdateColumns[i])
+                            append(" = VALUES(")
+                            append(normalizedUpdateColumns[i])
+                            append(")")
+                        }
+                    }
+                }
+                else -> error("No existe soporte de `upsert()` para el driver `$driverId`.")
             }
-            else -> error("No existe soporte de `upsert()` para el driver `$driverId`.")
         }
     }
 

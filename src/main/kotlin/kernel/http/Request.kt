@@ -186,37 +186,56 @@ open class Request(
     }
 
     fun array(key: String): List<String> {
-        val value = input(key)?.trim().orEmpty()
-        if (value.isBlank()) {
+        val value = input(key)?.trim()
+        if (value.isNullOrBlank()) {
             return emptyList()
         }
 
-        return value.split(',')
-            .map(String::trim)
-            .filter(String::isNotBlank)
+        val result = mutableListOf<String>()
+        var start = 0
+        while (start < value.length) {
+            val end = value.indexOf(',', start)
+            val chunkEnd = if (end == -1) value.length else end
+            val token = value.substring(start, chunkEnd).trim()
+            if (token.isNotEmpty()) {
+                result.add(token)
+            }
+            if (end == -1) break
+            start = end + 1
+        }
+        return result
     }
 
     fun list(key: String): List<String> = array(key)
 
     fun map(key: String): Map<String, String> {
-        val value = input(key)?.trim().orEmpty()
-        if (value.isBlank()) {
+        val value = input(key)?.trim()
+        if (value.isNullOrBlank()) {
             return emptyMap()
         }
 
         return if (value.startsWith("{") && value.endsWith("}")) {
             parseJsonLikeMap(value)
         } else {
-            value.split(',')
-                .map(String::trim)
-                .filter(String::isNotBlank)
-                .associate { token ->
+            val result = linkedMapOf<String, String>()
+            var start = 0
+            while (start < value.length) {
+                val end = value.indexOf(',', start)
+                val chunkEnd = if (end == -1) value.length else end
+                val token = value.substring(start, chunkEnd).trim()
+                if (token.isNotEmpty()) {
                     val index = token.indexOf(':')
                     require(index > 0) {
                         "El valor `$value` no puede convertirse a mapa."
                     }
-                    token.substring(0, index).trim() to token.substring(index + 1).trim()
+                    val k = token.substring(0, index).trim()
+                    val v = token.substring(index + 1).trim()
+                    result[k] = v
                 }
+                if (end == -1) break
+                start = end + 1
+            }
+            result
         }
     }
 
@@ -348,10 +367,22 @@ open class Request(
     fun path(): String = path.trim().trim('/')
 
     fun segments(): List<String> {
-        return path()
-            .split('/')
-            .map(String::trim)
-            .filter(String::isNotBlank)
+        val p = path()
+        if (p.isBlank()) return emptyList()
+        
+        val result = mutableListOf<String>()
+        var start = 0
+        while (start < p.length) {
+            val end = p.indexOf('/', start)
+            val chunkEnd = if (end == -1) p.length else end
+            val token = p.substring(start, chunkEnd).trim()
+            if (token.isNotEmpty()) {
+                result.add(token)
+            }
+            if (end == -1) break
+            start = end + 1
+        }
+        return result
     }
 
     fun segment(index: Int, default: String? = null): String? {
@@ -534,28 +565,51 @@ open class Request(
     }
 
     private fun parseJsonLikeMap(value: String): Map<String, String> {
-        return value
-            .removePrefix("{")
-            .removeSuffix("}")
-            .split(',')
-            .map(String::trim)
-            .filter(String::isNotBlank)
-            .associate { token ->
+        val result = linkedMapOf<String, String>()
+        val content = value.substring(1, value.length - 1)
+        var start = 0
+        while (start < content.length) {
+            val end = content.indexOf(',', start)
+            val chunkEnd = if (end == -1) content.length else end
+            val token = content.substring(start, chunkEnd).trim()
+            if (token.isNotEmpty()) {
                 val index = token.indexOf(':')
                 require(index > 0) {
                     "El valor `$value` no puede convertirse a mapa."
                 }
-                token.substring(0, index).trim().trim('"') to
-                    token.substring(index + 1).trim().trim('"')
+                val k = token.substring(0, index).trim()
+                val cleanK = if (k.startsWith('"') && k.endsWith('"') && k.length >= 2) k.substring(1, k.length - 1) else k
+                val v = token.substring(index + 1).trim()
+                val cleanV = if (v.startsWith('"') && v.endsWith('"') && v.length >= 2) v.substring(1, v.length - 1) else v
+                result[cleanK] = cleanV
             }
+            if (end == -1) break
+            start = end + 1
+        }
+        return result
     }
 
     private fun acceptedContentTypes(): List<String> {
-        return header("accept")
-            ?.split(',')
-            ?.map { token -> token.substringBefore(';').trim().lowercase() }
-            ?.filter(String::isNotBlank)
-            .orEmpty()
+        val headerValue = header("accept")
+        if (headerValue.isNullOrBlank()) return emptyList()
+
+        val result = mutableListOf<String>()
+        var start = 0
+        while (start < headerValue.length) {
+            val end = headerValue.indexOf(',', start)
+            val chunkEnd = if (end == -1) headerValue.length else end
+            val token = headerValue.substring(start, chunkEnd).trim()
+            if (token.isNotEmpty()) {
+                val semiColonIndex = token.indexOf(';')
+                val cleanToken = if (semiColonIndex >= 0) token.substring(0, semiColonIndex).trim() else token
+                if (cleanToken.isNotEmpty()) {
+                    result.add(cleanToken.lowercase())
+                }
+            }
+            if (end == -1) break
+            start = end + 1
+        }
+        return result
     }
 
     private fun mimeMatches(accepted: String, candidate: String): Boolean {

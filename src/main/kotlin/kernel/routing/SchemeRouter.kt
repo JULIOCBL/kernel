@@ -272,6 +272,8 @@ open class SchemeRouter(
         return RadixRouteMatcher(scheme, routes)
     }
 
+
+
     private fun normalizePath(path: String): String {
         return path.trim().trim('/').ifBlank { "" }
     }

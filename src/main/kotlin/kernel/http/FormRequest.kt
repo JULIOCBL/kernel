@@ -347,20 +347,39 @@ abstract class FormRequest(
     }
 
     private fun parseRules(definition: String): List<ValidationRule> {
-        return definition
-            .split('|')
-            .map(String::trim)
-            .filter(String::isNotBlank)
-            .map { token ->
-                val parts = token.split(':', limit = 2)
-                val name = parts.first().trim().lowercase()
-                val arguments = parts.getOrNull(1)
-                    ?.split(',')
-                    ?.map(String::trim)
-                    ?.filter(String::isNotBlank)
-                    .orEmpty()
-                ValidationRule(name, arguments)
+        if (definition.isBlank()) return emptyList()
+        val result = mutableListOf<ValidationRule>()
+        var start = 0
+        while (start < definition.length) {
+            val end = definition.indexOf('|', start)
+            val chunkEnd = if (end == -1) definition.length else end
+            val token = definition.substring(start, chunkEnd).trim()
+            if (token.isNotEmpty()) {
+                val colonIdx = token.indexOf(':')
+                if (colonIdx == -1) {
+                    result.add(ValidationRule(token.lowercase(), emptyList()))
+                } else {
+                    val name = token.substring(0, colonIdx).trim().lowercase()
+                    val argsStr = token.substring(colonIdx + 1)
+                    val argsList = mutableListOf<String>()
+                    var argStart = 0
+                    while (argStart < argsStr.length) {
+                        val argEnd = argsStr.indexOf(',', argStart)
+                        val argChunkEnd = if (argEnd == -1) argsStr.length else argEnd
+                        val arg = argsStr.substring(argStart, argChunkEnd).trim()
+                        if (arg.isNotEmpty()) {
+                            argsList.add(arg)
+                        }
+                        if (argEnd == -1) break
+                        argStart = argEnd + 1
+                    }
+                    result.add(ValidationRule(name, argsList))
+                }
             }
+            if (end == -1) break
+            start = end + 1
+        }
+        return result
     }
 
     private fun MutableMap<String, MutableList<String>>.error(field: String, message: String) {
@@ -429,37 +448,64 @@ abstract class FormRequest(
             "long" -> value.toLongOrNull() ?: value
             "double", "float", "numeric" -> value.toDoubleOrNull() ?: value
             "boolean", "bool" -> parseBoolean(value) ?: value
-            "list", "array" -> value
-                .split(',')
-                .map(String::trim)
-                .filter(String::isNotBlank)
+            "list", "array" -> {
+                val result = mutableListOf<String>()
+                var start = 0
+                while (start < value.length) {
+                    val end = value.indexOf(',', start)
+                    val chunkEnd = if (end == -1) value.length else end
+                    val token = value.substring(start, chunkEnd).trim()
+                    if (token.isNotEmpty()) {
+                        result.add(token)
+                    }
+                    if (end == -1) break
+                    start = end + 1
+                }
+                result
+            }
             "map", "object" -> if (value.startsWith("{") && value.endsWith("}")) {
-                value
-                    .removePrefix("{")
-                    .removeSuffix("}")
-                    .split(',')
-                    .map(String::trim)
-                    .filter(String::isNotBlank)
-                    .associate { token ->
+                val result = linkedMapOf<String, String>()
+                val content = value.substring(1, value.length - 1)
+                var start = 0
+                while (start < content.length) {
+                    val end = content.indexOf(',', start)
+                    val chunkEnd = if (end == -1) content.length else end
+                    val token = content.substring(start, chunkEnd).trim()
+                    if (token.isNotEmpty()) {
                         val index = token.indexOf(':')
                         require(index > 0) {
                             "El valor `$value` no puede convertirse a mapa."
                         }
-                        token.substring(0, index).trim().trim('"') to
-                            token.substring(index + 1).trim().trim('"')
+                        val k = token.substring(0, index).trim()
+                        val cleanK = if (k.startsWith('"') && k.endsWith('"') && k.length >= 2) k.substring(1, k.length - 1) else k
+                        val v = token.substring(index + 1).trim()
+                        val cleanV = if (v.startsWith('"') && v.endsWith('"') && v.length >= 2) v.substring(1, v.length - 1) else v
+                        result[cleanK] = cleanV
                     }
+                    if (end == -1) break
+                    start = end + 1
+                }
+                result
             } else {
-                value
-                    .split(',')
-                    .map(String::trim)
-                    .filter(String::isNotBlank)
-                    .associate { token ->
+                val result = linkedMapOf<String, String>()
+                var start = 0
+                while (start < value.length) {
+                    val end = value.indexOf(',', start)
+                    val chunkEnd = if (end == -1) value.length else end
+                    val token = value.substring(start, chunkEnd).trim()
+                    if (token.isNotEmpty()) {
                         val index = token.indexOf(':')
                         require(index > 0) {
                             "El valor `$value` no puede convertirse a mapa."
                         }
-                        token.substring(0, index).trim() to token.substring(index + 1).trim()
+                        val k = token.substring(0, index).trim()
+                        val v = token.substring(index + 1).trim()
+                        result[k] = v
                     }
+                    if (end == -1) break
+                    start = end + 1
+                }
+                result
             }
             else -> value
         }
