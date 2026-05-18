@@ -8,11 +8,14 @@ import kernel.database.orm.ModelNotFoundException
 import kernel.http.HttpRequestResolver
 import kernel.http.Request
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.jvm.JvmName
 import kotlin.reflect.KClass
+import kotlin.reflect.KFunction
 import kotlin.reflect.KFunction1
 import kotlin.reflect.KFunction2
 import kotlin.reflect.KFunction3
+import kotlin.reflect.KParameter
 import kotlin.reflect.full.companionObjectInstance
 import kotlin.reflect.full.isSubclassOf
 import kotlin.reflect.jvm.isAccessible
@@ -24,11 +27,17 @@ import kotlin.reflect.jvm.isAccessible
 object Route {
     private val currentRegistrar = ThreadLocal<SchemeRouter?>()
     private val currentGroupStack = ThreadLocal.withInitial { mutableListOf<GroupContext>() }
+    private val actionPlanCache = ConcurrentHashMap<KFunction<*>, ControllerActionPlan>()
 
     private data class GroupContext(
         val prefix: String = "",
         val middleware: List<String> = emptyList(),
         val namePrefix: String = ""
+    )
+
+    private data class ControllerActionPlan(
+        val requestType: Class<out Request>? = null,
+        val resolvers: List<(Map<String, String>) -> Any>
     )
 
     class RouteGroupBuilder internal constructor(
@@ -132,9 +141,14 @@ object Route {
             registerControllerAction(method, path, action, aliases.toList(), routeName)
         }
 
-        @JvmName("pendingActionControllerWithRequestAndModel")
-        fun <T : Any, RQ : Request, M : Model, R> action(action: KFunction3<T, RQ, M, R>) {
-            registerRequestAndModelAction(method, path, action, aliases.toList(), routeName)
+        @JvmName("pendingActionControllerWithTwoArguments")
+        fun <T : Any, P1 : Any, P2 : Any, R> action(action: KFunction3<T, P1, P2, R>) {
+            registerTwoArgumentControllerAction(method, path, action, aliases.toList(), routeName)
+        }
+
+        @JvmName("pendingActionControllerWithManyArguments")
+        fun <R> action(action: KFunction<R>) {
+            registerGenericControllerAction(method, path, action, aliases.toList(), routeName)
         }
     }
 
@@ -260,9 +274,94 @@ object Route {
         registerControllerAction("GET", path, action)
     }
 
-    @JvmName("getControllerWithRequestAndModel")
-    fun <T : Any, RQ : Request, M : Model, R> get(path: String, action: KFunction3<T, RQ, M, R>) {
-        registerRequestAndModelAction("GET", path, action)
+    @JvmName("getControllerWithTwoArguments")
+    fun <T : Any, P1 : Any, P2 : Any, R> get(path: String, action: KFunction3<T, P1, P2, R>) {
+        registerTwoArgumentControllerAction("GET", path, action)
+    }
+
+    @JvmName("getControllerWithManyArguments")
+    fun <R> get(path: String, action: KFunction<R>) {
+        registerGenericControllerAction("GET", path, action)
+    }
+
+    @JvmName("postControllerWithTwoArguments")
+    fun <T : Any, P1 : Any, P2 : Any, R> post(path: String, action: KFunction3<T, P1, P2, R>) {
+        registerTwoArgumentControllerAction("POST", path, action)
+    }
+
+    @JvmName("postControllerWithManyArguments")
+    fun <R> post(path: String, action: KFunction<R>) {
+        registerGenericControllerAction("POST", path, action)
+    }
+
+    @JvmName("putControllerWithTwoArguments")
+    fun <T : Any, P1 : Any, P2 : Any, R> put(path: String, action: KFunction3<T, P1, P2, R>) {
+        registerTwoArgumentControllerAction("PUT", path, action)
+    }
+
+    @JvmName("putControllerWithManyArguments")
+    fun <R> put(path: String, action: KFunction<R>) {
+        registerGenericControllerAction("PUT", path, action)
+    }
+
+    @JvmName("deleteControllerWithTwoArguments")
+    fun <T : Any, P1 : Any, P2 : Any, R> delete(path: String, action: KFunction3<T, P1, P2, R>) {
+        registerTwoArgumentControllerAction("DELETE", path, action)
+    }
+
+    @JvmName("deleteControllerWithManyArguments")
+    fun <R> delete(path: String, action: KFunction<R>) {
+        registerGenericControllerAction("DELETE", path, action)
+    }
+
+    @JvmName("patchControllerWithTwoArguments")
+    fun <T : Any, P1 : Any, P2 : Any, R> patch(path: String, action: KFunction3<T, P1, P2, R>) {
+        registerTwoArgumentControllerAction("PATCH", path, action)
+    }
+
+    @JvmName("patchControllerWithManyArguments")
+    fun <R> patch(path: String, action: KFunction<R>) {
+        registerGenericControllerAction("PATCH", path, action)
+    }
+
+    @JvmName("headControllerWithTwoArguments")
+    fun <T : Any, P1 : Any, P2 : Any, R> head(path: String, action: KFunction3<T, P1, P2, R>) {
+        registerTwoArgumentControllerAction("HEAD", path, action)
+    }
+
+    @JvmName("headControllerWithManyArguments")
+    fun <R> head(path: String, action: KFunction<R>) {
+        registerGenericControllerAction("HEAD", path, action)
+    }
+
+    @JvmName("optionsControllerWithTwoArguments")
+    fun <T : Any, P1 : Any, P2 : Any, R> options(path: String, action: KFunction3<T, P1, P2, R>) {
+        registerTwoArgumentControllerAction("OPTIONS", path, action)
+    }
+
+    @JvmName("optionsControllerWithManyArguments")
+    fun <R> options(path: String, action: KFunction<R>) {
+        registerGenericControllerAction("OPTIONS", path, action)
+    }
+
+    @JvmName("traceControllerWithTwoArguments")
+    fun <T : Any, P1 : Any, P2 : Any, R> trace(path: String, action: KFunction3<T, P1, P2, R>) {
+        registerTwoArgumentControllerAction("TRACE", path, action)
+    }
+
+    @JvmName("traceControllerWithManyArguments")
+    fun <R> trace(path: String, action: KFunction<R>) {
+        registerGenericControllerAction("TRACE", path, action)
+    }
+
+    @JvmName("connectControllerWithTwoArguments")
+    fun <T : Any, P1 : Any, P2 : Any, R> connect(path: String, action: KFunction3<T, P1, P2, R>) {
+        registerTwoArgumentControllerAction("CONNECT", path, action)
+    }
+
+    @JvmName("connectControllerWithManyArguments")
+    fun <R> connect(path: String, action: KFunction<R>) {
+        registerGenericControllerAction("CONNECT", path, action)
     }
 
     @JvmName("postControllerWithRequest")
@@ -496,10 +595,31 @@ object Route {
                     name
                 )
             }
-            else -> error(
-                "No se puede registrar `${action.name}`. El segundo parametro debe ser Map, Request o Model."
-            )
+            else -> {
+                registerScalarAction(
+                    method,
+                    path,
+                    action,
+                    middleware,
+                    name
+                )
+            }
         }
+    }
+
+    private fun <T : Any, P : Any, R> registerScalarAction(
+        method: String,
+        path: String,
+        action: KFunction2<T, P, R>,
+        middleware: List<String> = emptyList(),
+        name: String? = null
+    ) {
+        register(method, path, { params ->
+            val controller = resolveController(action)
+            val argument = resolveActionParameter(action.parameters[1], params, action.name)
+            action.isAccessible = true
+            action.call(controller, argument)
+        }, middleware, name)
     }
 
     private fun <T : Any, P : Any, R> registerModelAction(
@@ -517,21 +637,62 @@ object Route {
         }, middleware, name)
     }
 
-    private fun <T : Any, RQ : Request, M : Model, R> registerRequestAndModelAction(
+    private fun <T : Any, P1 : Any, P2 : Any, R> registerTwoArgumentControllerAction(
         method: String,
         path: String,
-        action: KFunction3<T, RQ, M, R>,
+        action: KFunction3<T, P1, P2, R>,
         middleware: List<String> = emptyList(),
         name: String? = null
     ) {
+        val firstParameterType = action.parameters[1].type.classifier as? KClass<*>
+        val secondParameterType = action.parameters[2].type.classifier as? KClass<*>
+        if (
+            firstParameterType?.isSubclassOf(Request::class) == true &&
+            secondParameterType?.isSubclassOf(Model::class) == true
+        ) {
+            val strictRequestType = requestTypeOf(action)
+                ?: error("No se pudo inferir el tipo de Request para `${action.name}`.")
+            register(method, path, { params ->
+                val controller = resolveController(action)
+                val request = HttpRequestResolver.resolve(strictRequestType)
+                val model = resolveBoundModel(action, params)
+                action.isAccessible = true
+                action.call(controller, request, model)
+            }, middleware, name, strictRequestType.java)
+            return
+        }
+
+        val requestType = requestTypeOf(action)
         register(method, path, { params ->
             val controller = resolveController(action)
-            val requestType = requestTypeOf(action)
-            val request = HttpRequestResolver.resolve(requestType)
-            val model = resolveBoundModel(action, params)
+            val firstArgument = resolveActionParameter(action.parameters[1], params, action.name)
+            val secondArgument = resolveActionParameter(action.parameters[2], params, action.name)
             action.isAccessible = true
-            action.call(controller, request, model)
-        }, middleware, name, requestTypeOf(action).java)
+            action.call(controller, firstArgument, secondArgument)
+        }, middleware, name, requestType?.java)
+    }
+
+    private fun <R> registerGenericControllerAction(
+        method: String,
+        path: String,
+        action: KFunction<R>,
+        middleware: List<String> = emptyList(),
+        name: String? = null
+    ) {
+        require(action.parameters.size > 3) {
+            "`${action.name}` ya esta cubierto por una ruta optimizada; usa el overload especifico."
+        }
+
+        val plan = actionPlanCache.computeIfAbsent(action) {
+            buildControllerActionPlan(action)
+        }
+
+        register(method, path, { params ->
+            val controller = resolveController(action)
+            val arguments = plan.resolvers.map { resolver -> resolver(params) }.toTypedArray()
+            action.isAccessible = true
+            action.call(controller, *arguments)
+        }, middleware, name, plan.requestType)
     }
 
     @JvmName("resolveControllerFromKFunction1")
@@ -547,6 +708,14 @@ object Route {
     @JvmName("resolveControllerFromKFunction3")
     private fun <T : Any> resolveController(action: KFunction3<T, *, *, *>): T {
         return ControllerResolver.resolve(controllerTypeOf(action))
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @JvmName("resolveControllerFromKFunction")
+    private fun <T : Any> resolveController(action: KFunction<*>): T {
+        val controllerType = action.parameters.firstOrNull()?.type?.classifier as? KClass<T>
+            ?: error("No se pudo inferir el tipo del controlador para `${action.name}`.")
+        return ControllerResolver.resolve(controllerType)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -585,15 +754,15 @@ object Route {
 
     @Suppress("UNCHECKED_CAST")
     @JvmName("requestTypeOfKFunction3")
-    private fun <RQ : Request> requestTypeOf(action: KFunction3<*, RQ, *, *>): KClass<RQ> {
-        val requestType = action.parameters[1].type.classifier as? KClass<RQ>
-            ?: error("No se pudo inferir el tipo de Request para `${action.name}`.")
-
-        require(requestType.isSubclassOf(Request::class)) {
-            "El segundo parametro de `${action.name}` debe heredar de Request."
-        }
-
-        return requestType
+    private fun requestTypeOf(action: KFunction3<*, *, *, *>): KClass<out Request>? {
+        return action.parameters
+            .drop(1)
+            .mapNotNull { parameter ->
+                parameter.type.classifier as? KClass<*>
+            }
+            .firstOrNull { parameterType ->
+                parameterType.isSubclassOf(Request::class)
+            } as? KClass<out Request>
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -647,6 +816,122 @@ object Route {
             routeKey = routeKey,
             value = rawValue
         )
+    }
+
+    private fun resolveActionParameter(
+        parameter: KParameter,
+        params: Map<String, String>,
+        actionName: String
+    ): Any {
+        val parameterType = parameter.type.classifier as? KClass<*>
+            ?: error("No se pudo inferir el tipo del parametro `${parameter.name}` en `${actionName}`.")
+
+        return when {
+            parameterType == Map::class -> params
+            parameterType.isSubclassOf(Request::class) -> {
+                @Suppress("UNCHECKED_CAST")
+                HttpRequestResolver.resolve(parameterType as KClass<Request>)
+            }
+            parameterType.isSubclassOf(Model::class) -> {
+                findBoundModel(parameterType as KClass<out Model>, parameter.name ?: "id", params)
+            }
+            else -> resolveScalarRouteValue(parameter, parameterType, params, actionName)
+        }
+    }
+
+    private fun resolveScalarRouteValue(
+        parameter: KParameter,
+        parameterType: KClass<*>,
+        params: Map<String, String>,
+        actionName: String
+    ): Any {
+        val routeKey = parameter.name
+            ?: if (params.size == 1) params.keys.first() else null
+            ?: error(
+                "No se pudo inferir el nombre del parametro escalar para `${actionName}`."
+            )
+        val rawValue = params[routeKey]
+            ?: if (params.size == 1) params.values.first() else null
+            ?: throw IllegalArgumentException(
+                "No existe el parametro de ruta `$routeKey` para resolver `${actionName}`."
+            )
+
+        return castScalarRouteValue(rawValue, parameterType, routeKey, actionName)
+    }
+
+    private fun castScalarRouteValue(
+        rawValue: String,
+        parameterType: KClass<*>,
+        routeKey: String,
+        actionName: String
+    ): Any {
+        return when (parameterType) {
+            String::class -> rawValue
+            Int::class -> rawValue.toIntOrNull()
+            Long::class -> rawValue.toLongOrNull()
+            Double::class -> rawValue.toDoubleOrNull()
+            Float::class -> rawValue.toFloatOrNull()
+            Boolean::class -> rawValue.toBooleanStrictOrNull()
+            Short::class -> rawValue.toShortOrNull()
+            Byte::class -> rawValue.toByteOrNull()
+            else -> {
+                if (parameterType.java.isEnum) {
+                    parameterType.java.enumConstants.firstOrNull { candidate ->
+                        (candidate as Enum<*>).name.equals(rawValue, ignoreCase = true)
+                    }
+                } else {
+                    null
+                }
+            }
+        } ?: throw IllegalArgumentException(
+            "No se pudo convertir `$routeKey=$rawValue` al tipo `${parameterType.simpleName}` en `${actionName}`."
+        )
+    }
+
+    private fun buildControllerActionPlan(action: KFunction<*>): ControllerActionPlan {
+        val requestType = action.parameters
+            .drop(1)
+            .mapNotNull { parameter ->
+                parameter.type.classifier as? KClass<*>
+            }
+            .firstOrNull { parameterType ->
+                parameterType.isSubclassOf(Request::class)
+            } as? KClass<out Request>
+
+        val resolvers = action.parameters
+            .drop(1)
+            .map { parameter ->
+                buildActionParameterResolver(parameter, action.name)
+            }
+
+        return ControllerActionPlan(
+            requestType = requestType?.java,
+            resolvers = resolvers
+        )
+    }
+
+    private fun buildActionParameterResolver(
+        parameter: KParameter,
+        actionName: String
+    ): (Map<String, String>) -> Any {
+        val parameterType = parameter.type.classifier as? KClass<*>
+            ?: error("No se pudo inferir el tipo del parametro `${parameter.name}` en `${actionName}`.")
+
+        return when {
+            parameterType == Map::class -> { params -> params }
+            parameterType.isSubclassOf(Request::class) -> {
+                @Suppress("UNCHECKED_CAST")
+                { _ -> HttpRequestResolver.resolve(parameterType as KClass<Request>) }
+            }
+            parameterType.isSubclassOf(Model::class) -> {
+                val routeKey = parameter.name ?: "id"
+                @Suppress("UNCHECKED_CAST")
+                { params -> findBoundModel(parameterType as KClass<out Model>, routeKey, params) }
+            }
+            else -> {
+                { params -> resolveScalarRouteValue(parameter, parameterType, params, actionName) }
+            }
+        }
     }
 
     private fun currentGroupContext(): GroupContext {

@@ -33,6 +33,16 @@ fun show(user: User) {
 }
 ```
 
+### Motor de Resolución (Radix Tree)
+El enrutador interno utiliza un árbol **Radix (Trie)** de alto rendimiento para resolver rutas dinámicas. Esto significa que las coincidencias se resuelven de forma extremadamente rápida (`O(K)` donde K es la longitud de la ruta) en lugar de evaluar una lista gigante de expresiones regulares.
+
+- **Prioridad estática sobre dinámica:** Una ruta como `/users/admin` siempre tendrá prioridad sobre `/users/{id}` independientemente del orden en el que se hayan registrado.
+- **Detección temprana de conflictos:** Gracias al `RouteConflictDetector`, si intentas registrar dos rutas que colisionan estructuralmente de forma ambigua, el kernel arrojará una excepción en tiempo de compilación/arranque, previniendo errores lógicos indetectables en producción.
+
+### Inmutabilidad (Freeze)
+Al finalizar la fase de *booting* de la aplicación, el `RouteServiceProvider` llama automáticamente a `freeze()` en los catálogos de rutas. 
+Una vez congelado, el árbol se vuelve inmutable y estructurado para lectura masiva concurrente. **Cualquier intento de registrar una ruta dinámicamente en tiempo de ejecución (runtime) lanzará una excepción.** Esto garantiza que el routing sea predecible y seguro entre hilos.
+
 ---
 
 ## Peticiones (`Request`)

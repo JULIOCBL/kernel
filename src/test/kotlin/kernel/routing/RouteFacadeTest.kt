@@ -5,6 +5,8 @@ import kernel.database.orm.ModelDefinition
 import kernel.foundation.Application
 import kernel.foundation.ApplicationRuntime
 import kernel.http.DesktopResponse
+import kernel.http.HttpRequestRuntime
+import kernel.http.Request
 import java.sql.ResultSet
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
@@ -21,6 +23,12 @@ class RouteFacadeTest {
 
     private class UserController {
         fun show(user: FakeUser): String = user.id.toString()
+        fun showId(id: String): String = id
+        fun showIdWithRequest(request: Request, id: String): String = "${request.method()}:$id"
+        fun showIdRequestReversed(id: String, request: Request): String = "${request.method()}:$id"
+        fun showRich(request: Request, user: FakeUser, id: Int, status: String): String {
+            return "${request.method()}:${user.id}:$id:$status"
+        }
     }
 
     data class FakeUser(
@@ -221,6 +229,94 @@ class RouteFacadeTest {
 
         assertNotNull(response)
         assertEquals("55", response.payload)
+    }
+
+    @Test
+    fun `facade supports scalar route binding by parameter name`() {
+        ApplicationRuntime.resetForTests()
+        val app = Application.bootstrap(createTempDirectory("kernel-routing-test")).initializeRuntime()
+        val router = ApiRouter("api")
+        app.config.set("services.routes.api.router", router)
+        app.config.set("services.routes.controllers", ControllerRegistry())
+
+        Route.withRouter(router) {
+            Route.get("users/{id}", UserController::showId)
+        }
+
+        val response = router.resolve("GET", "api://users/88")
+
+        assertNotNull(response)
+        assertEquals("88", response.payload)
+    }
+
+    @Test
+    fun `facade supports request and scalar route binding in any order`() {
+        ApplicationRuntime.resetForTests()
+        val app = Application.bootstrap(createTempDirectory("kernel-routing-test")).initializeRuntime()
+        val router = ApiRouter("api")
+        app.config.set("services.routes.api.router", router)
+        app.config.set("services.routes.controllers", ControllerRegistry())
+
+        Route.withRouter(router) {
+            Route.get("users/{id}/left", UserController::showIdWithRequest)
+            Route.get("users/{id}/right", UserController::showIdRequestReversed)
+        }
+
+        val request = Request(
+            app = app,
+            method = "GET",
+            target = "api://users/88/left",
+            path = "/users/88/left"
+        )
+
+        val left = HttpRequestRuntime.withRequest(request) {
+            router.resolve("GET", "api://users/88/left")
+        }
+        val right = HttpRequestRuntime.withRequest(
+            request.copy(
+                target = "api://users/88/right",
+                path = "/users/88/right"
+            )
+        ) {
+            router.resolve("GET", "api://users/88/right")
+        }
+
+        assertNotNull(left)
+        assertEquals("GET:88", left.payload)
+        assertNotNull(right)
+        assertEquals("GET:88", right.payload)
+    }
+
+    @Test
+    fun `facade supports cached binding plans for controllers with many arguments`() {
+        ApplicationRuntime.resetForTests()
+        val app = Application.bootstrap(createTempDirectory("kernel-routing-test")).initializeRuntime()
+        val router = ApiRouter("api")
+        app.config.set("services.routes.api.router", router)
+        app.config.set("services.routes.controllers", ControllerRegistry())
+
+        Route.withRouter(router) {
+            Route.get("users/{user}/orders/{id}/{status}", UserController::showRich)
+        }
+
+        val request = Request(
+            app = app,
+            method = "GET",
+            target = "api://users/55/orders/88/paid",
+            path = "/users/55/orders/88/paid"
+        )
+
+        val first = HttpRequestRuntime.withRequest(request) {
+            router.resolve("GET", "api://users/55/orders/88/paid")
+        }
+        val second = HttpRequestRuntime.withRequest(request) {
+            router.resolve("GET", "api://users/55/orders/88/paid")
+        }
+
+        assertNotNull(first)
+        assertEquals("GET:55:88:paid", first.payload)
+        assertNotNull(second)
+        assertEquals("GET:55:88:paid", second.payload)
     }
 
     companion object {
