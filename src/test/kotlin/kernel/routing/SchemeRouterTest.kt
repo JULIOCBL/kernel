@@ -2,6 +2,7 @@ package kernel.routing
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -68,5 +69,42 @@ class SchemeRouterTest {
         assertEquals("users", routes[1].path)
         assertEquals("users.store", routes[1].name)
         assertTrue("api" in routes[1].middleware)
+    }
+
+    @Test
+    fun `scheme router prioritizes static paths over dynamic params`() {
+        val router = SchemeRouter("api")
+
+        router.get("users/new", { "new" })
+        router.get("users/{id}", { params -> params["id"] ?: "" })
+
+        assertEquals("new", router.resolve("GET", "api://users/new")?.payload)
+        assertEquals("77", router.resolve("GET", "api://users/77")?.payload)
+    }
+
+    @Test
+    fun `scheme router supports terminal wildcards`() {
+        val router = SchemeRouter("api")
+
+        router.get("files/*path", { params -> params["path"] ?: "" })
+
+        val resolution = router.resolve("GET", "api://files/images/icons/logo.svg?disk=public")
+
+        assertNotNull(resolution)
+        assertEquals("images/icons/logo.svg", resolution.params["path"])
+        assertEquals("public", resolution.params["disk"])
+        assertEquals("images/icons/logo.svg", resolution.payload)
+    }
+
+    @Test
+    fun `scheme router rejects ambiguous dynamic route signatures`() {
+        val router = SchemeRouter("api")
+
+        router.get("users/{id}", { params -> params["id"] ?: "" })
+        router.get("users/{slug}", { params -> params["slug"] ?: "" })
+
+        assertFailsWith<IllegalArgumentException> {
+            router.routes()
+        }
     }
 }
