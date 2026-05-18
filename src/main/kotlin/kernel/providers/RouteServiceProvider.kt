@@ -75,6 +75,8 @@ open class RouteServiceProvider(app: Application) : ServiceProvider(app) {
 
         RouteModuleLoader.loadDesktopRoutes(app, desktopRouter)
         RouteModuleLoader.loadApiRoutes(app, apiRouter)
+        desktopRouter.freeze()
+        apiRouter.freeze()
     }
 
     private fun desktopScheme(): String {

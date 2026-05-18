@@ -37,6 +37,7 @@ open class SchemeRouter(
 ) {
     private val lock = Any()
     private val routeEntries = mutableListOf<CompiledRoute>()
+    private var frozen: Boolean = false
 
     @Volatile
     private var compiledState: CompiledRouterState? = null
@@ -190,6 +191,19 @@ open class SchemeRouter(
         return compiledState().namedRoutes.hasNamedRoute(name)
     }
 
+    fun freeze() {
+        synchronized(lock) {
+            if (frozen) {
+                return
+            }
+
+            compiledState()
+            frozen = true
+        }
+    }
+
+    fun isFrozen(): Boolean = frozen
+
     private fun register(
         method: String,
         path: String,
@@ -213,6 +227,10 @@ open class SchemeRouter(
         )
 
         synchronized(lock) {
+            check(!frozen) {
+                "No se pueden registrar nuevas rutas en el router `$scheme` despues de freeze()."
+            }
+
             routeEntries.removeAll { entry ->
                 entry.method == normalizedMethod && entry.path == normalizedPath
             }
@@ -224,7 +242,7 @@ open class SchemeRouter(
     private fun compiledState(): CompiledRouterState {
         compiledState?.let { return it }
 
-        synchronized(lock) {
+        return synchronized(lock) {
             compiledState?.let { return it }
 
             val snapshot = routeEntries.toList()
@@ -246,7 +264,7 @@ open class SchemeRouter(
             )
 
             compiledState = state
-            return state
+            state
         }
     }
 

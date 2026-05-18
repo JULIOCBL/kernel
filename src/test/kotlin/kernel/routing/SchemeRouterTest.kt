@@ -107,4 +107,27 @@ class SchemeRouterTest {
             router.routes()
         }
     }
+
+    @Test
+    fun `scheme router can be frozen after compilation`() {
+        val router = SchemeRouter("api")
+
+        router.get("health", { "ok" })
+        router.freeze()
+
+        assertTrue(router.isFrozen())
+        assertEquals("ok", router.resolve("GET", "api://health")?.payload)
+    }
+
+    @Test
+    fun `scheme router rejects new registrations after freeze`() {
+        val router = SchemeRouter("api")
+
+        router.get("health", { "ok" })
+        router.freeze()
+
+        assertFailsWith<IllegalStateException> {
+            router.get("users", { "users" })
+        }
+    }
 }
