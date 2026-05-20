@@ -710,10 +710,9 @@ object Route {
         return ControllerResolver.resolve(controllerTypeOf(action))
     }
 
-    @Suppress("UNCHECKED_CAST")
     @JvmName("resolveControllerFromKFunction")
-    private fun <T : Any> resolveController(action: KFunction<*>): T {
-        val controllerType = action.parameters.firstOrNull()?.type?.classifier as? KClass<T>
+    private fun resolveController(action: KFunction<*>): Any {
+        val controllerType = action.parameters.firstOrNull()?.type?.classifier as? KClass<*>
             ?: error("No se pudo inferir el tipo del controlador para `${action.name}`.")
         return ControllerResolver.resolve(controllerType)
     }
