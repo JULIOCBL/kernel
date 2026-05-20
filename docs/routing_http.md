@@ -33,6 +33,21 @@ fun show(user: User) {
 }
 ```
 
+### Inyección Automática de Parámetros (Auto-Wiring)
+El Kernel es capaz de leer la firma de tus controladores e inyectar automáticamente dependencias y variables escalares de la ruta **en cualquier orden**.
+
+```kotlin
+// Ruta: GET /users/{id}/status/{status}
+
+// Controlador:
+fun updateUser(request: Request, id: Int, status: StatusEnum) {
+    // 1. El framework inyecta la petición actual HTTP en 'request'
+    // 2. Extrae 'id' de la URL y lo convierte a Int de forma segura
+    // 3. Extrae 'status' de la URL y lo mapea al Enum de forma automática
+}
+```
+*Si el framework no logra castear un parámetro (ej: envían texto donde se pedía un `Int` o `Boolean`), lanzará una excepción limpiamente abortando la petición para proteger tu lógica de negocio.*
+
 ### Motor de Resolución (Radix Tree)
 El enrutador interno utiliza un árbol **Radix (Trie)** de alto rendimiento para resolver rutas dinámicas. Esto significa que las coincidencias se resuelven de forma extremadamente rápida (`O(K)` donde K es la longitud de la ruta) en lugar de evaluar una lista gigante de expresiones regulares.
 
