@@ -719,6 +719,55 @@ En ese escenario la surface no toca el estado critico directamente. Solo emite
 la intencion y el `SurfaceCoordinator` de la app decide si la acepta, la valida
 y como actualiza el estado global compartido.
 
+### Catalogo De Surfaces
+
+Si quieres reutilizar configuraciones base, tambien puedes registrar un
+`SurfaceCatalog`:
+
+- lista surfaces disponibles;
+- expone sus caracteristicas base;
+- resuelve una configuracion concreta antes de abrirla.
+
+Ejemplo:
+
+```kotlin
+import kernel.multisurface.DefaultSurfaceManager
+import kernel.multisurface.SurfaceCatalog
+import kernel.multisurface.SurfaceDefinition
+import kernel.multisurface.SurfaceProjection
+import kernel.multisurface.SurfaceRole
+
+val catalog = SurfaceCatalog(
+    listOf(
+        SurfaceDefinition(
+            id = "customer.display",
+            role = SurfaceRole.SECONDARY,
+            title = "Customer Display",
+            targetDisplayIndex = 1,
+            fullscreen = true,
+            externalDisplayPreferred = true,
+            defaultProjection = SurfaceProjection(viewId = "home")
+        )
+    )
+)
+
+val manager = DefaultSurfaceManager(catalog = catalog, displayDetector = { 2 })
+
+val definition = catalog.require("customer.display")
+val launchPlan = catalog.launchPlanFor(definition.id)
+
+manager.open(
+    definitionId = definition.id
+)
+```
+
+Con ese enfoque puedes definir desde catalogo:
+
+- en que pantalla abre una surface por default;
+- si abre `fullscreen` o `windowed`;
+- su proyeccion inicial;
+- y sus capacidades pasivas o interactivas.
+
 ## Child Windows Opcional
 
 El kernel tambien puede registrar ventanas hijas funcionales con una base

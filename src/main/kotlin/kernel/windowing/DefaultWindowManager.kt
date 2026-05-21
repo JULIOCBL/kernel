@@ -1,9 +1,9 @@
 package kernel.windowing
 
 import java.util.UUID
+import kernel.foundation.DerivedStateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
@@ -12,12 +12,19 @@ import kotlinx.coroutines.flow.update
 class DefaultWindowManager(
     private val catalog: WindowCatalog = WindowCatalog()
 ) {
-    private val windowsById = linkedMapOf<String, WindowDescriptor>()
-    private val windowsState = MutableStateFlow<List<WindowDescriptor>>(emptyList())
+    private data class WindowManagerState(
+        val descriptorsById: Map<String, WindowDescriptor> = emptyMap(),
+        val descriptors: List<WindowDescriptor> = emptyList()
+    )
+
+    private val state = MutableStateFlow(WindowManagerState())
+    private val windowsState = DerivedStateFlow(state) { current: WindowManagerState ->
+        current.descriptors
+    }
 
     fun catalog(): WindowCatalog = catalog
 
-    fun windows(): StateFlow<List<WindowDescriptor>> = windowsState.asStateFlow()
+    fun windows(): StateFlow<List<WindowDescriptor>> = windowsState
 
     fun open(
         definitionId: String,
@@ -30,27 +37,41 @@ class DefaultWindowManager(
             options = options
         )
 
-        windowsById[instanceId] = descriptor
-        publishSnapshot()
+        state.update { current ->
+            val updated = LinkedHashMap(current.descriptorsById)
+            updated[instanceId] = descriptor
+            current.copy(
+                descriptorsById = updated,
+                descriptors = updated.values.toList()
+            )
+        }
         return instanceId
     }
 
     fun close(instanceId: String) {
-        if (windowsById.remove(instanceId) != null) {
-            publishSnapshot()
+        state.update { current ->
+            if (!current.descriptorsById.containsKey(instanceId)) {
+                return@update current
+            }
+
+            val updated = LinkedHashMap(current.descriptorsById)
+            updated.remove(instanceId)
+            current.copy(
+                descriptorsById = updated,
+                descriptors = updated.values.toList()
+            )
         }
     }
 
     fun closeAll() {
-        if (windowsById.isNotEmpty()) {
-            windowsById.clear()
-            publishSnapshot()
+        state.update { current ->
+            if (current.descriptors.isEmpty()) {
+                current
+            } else {
+                WindowManagerState()
+            }
         }
     }
 
-    fun find(instanceId: String): WindowDescriptor? = windowsById[instanceId]
-
-    private fun publishSnapshot() {
-        windowsState.value = windowsById.values.toList()
-    }
+    fun find(instanceId: String): WindowDescriptor? = state.value.descriptorsById[instanceId]
 }

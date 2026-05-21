@@ -3,6 +3,7 @@ package kernel.providers
 import kernel.foundation.Application
 import kernel.multisurface.DefaultSurfaceManager
 import kernel.multisurface.NoOpSurfaceCoordinator
+import kernel.multisurface.SurfaceCatalog
 import kernel.multisurface.SurfaceCoordinator
 import kernel.multisurface.SurfaceManager
 
@@ -11,6 +12,11 @@ import kernel.multisurface.SurfaceManager
  */
 class SurfaceServiceProvider(app: Application) : ServiceProvider(app) {
     override fun register() {
+        val catalog = app.config.get("services.surfaces.catalog") as? SurfaceCatalog
+            ?: SurfaceCatalog().also {
+                app.config.set("services.surfaces.catalog", it)
+            }
+
         val coordinator = app.config.get("services.surfaces.coordinator") as? SurfaceCoordinator
             ?: NoOpSurfaceCoordinator.also {
                 app.config.set("services.surfaces.coordinator", it)
@@ -20,7 +26,10 @@ class SurfaceServiceProvider(app: Application) : ServiceProvider(app) {
         if (existingManager == null) {
             app.config.set(
                 "services.surfaces.manager",
-                DefaultSurfaceManager(coordinator = coordinator)
+                DefaultSurfaceManager(
+                    catalog = catalog,
+                    coordinator = coordinator
+                )
             )
         }
     }

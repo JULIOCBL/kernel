@@ -36,9 +36,14 @@ class WindowCatalog(
         options: WindowLaunchOptions = WindowLaunchOptions()
     ): WindowDescriptor {
         val definition = require(definitionId)
-        val mergedProps = linkedMapOf<String, Any?>()
-        mergedProps.putAll(definition.defaultProps)
-        mergedProps.putAll(options.props)
+        val mergedProps = when {
+            options.props.isEmpty() -> definition.defaultProps
+            definition.defaultProps.isEmpty() -> options.props
+            else -> linkedMapOf<String, Any?>().apply {
+                putAll(definition.defaultProps)
+                putAll(options.props)
+            }
+        }
 
         return WindowDescriptor(
             instanceId = instanceId,

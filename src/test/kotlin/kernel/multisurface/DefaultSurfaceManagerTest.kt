@@ -8,6 +8,31 @@ import kotlin.test.assertTrue
 
 class DefaultSurfaceManagerTest {
     @Test
+    fun `opens a surface from catalog preserving display defaults`() {
+        val manager = DefaultSurfaceManager(
+            catalog = SurfaceCatalog(
+                listOf(
+                    SurfaceDefinition(
+                        id = "customer.display",
+                        role = SurfaceRole.SECONDARY,
+                        title = "Customer Display",
+                        targetDisplayIndex = 1,
+                        externalDisplayPreferred = true,
+                        defaultProjection = SurfaceProjection(viewId = "home")
+                    )
+                )
+            ),
+            displayDetector = { 2 }
+        )
+
+        val descriptor = manager.open("customer.display")
+
+        assertEquals(1, descriptor.targetDisplayIndex)
+        assertTrue(descriptor.externalDisplayPreferred)
+        assertEquals("home", manager.projection("customer.display").value.viewId)
+    }
+
+    @Test
     fun `opens surfaces and stores projections`() {
         val manager = DefaultSurfaceManager(displayDetector = { 2 })
 
