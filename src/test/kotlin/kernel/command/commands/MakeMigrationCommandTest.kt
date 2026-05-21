@@ -1,6 +1,7 @@
 package kernel.command.commands
 
 import kernel.command.CommandInput
+import kernel.foundation.Application
 import java.nio.file.Files
 import kotlin.io.path.readText
 import kotlin.test.Test
@@ -52,5 +53,36 @@ class MakeMigrationCommandTest {
 
         assertTrue(content.contains("""class """))
         assertTrue(content.contains("""create("posts") {"""))
+    }
+
+    @Test
+    fun `uses application config to resolve package and directory`() {
+        val workingDirectory = Files.createTempDirectory("kernel-make-migration-config-test")
+        val application = Application(basePath = workingDirectory).apply {
+            config.set("app.generators.migrations.package", "demo.database.migrations")
+            config.set("app.generators.migrations.directory", "src/main/kotlin/demo/database/migrations")
+        }
+        val command = MakeMigrationCommand(application = application)
+
+        val result = command.execute(
+            CommandInput(
+                name = "make:migration",
+                arguments = listOf("create_audit_logs_table"),
+                options = mapOf(
+                    "create" to "audit_logs",
+                    "database" to "logs"
+                ),
+                workingDirectory = workingDirectory
+            )
+        )
+
+        val migrationsDir = workingDirectory.resolve("src/main/kotlin/demo/database/migrations")
+        val generatedFile = Files.list(migrationsDir).use { files -> files.findFirst().orElseThrow() }
+        val content = generatedFile.readText()
+
+        assertEquals(0, result.exitCode)
+        assertTrue(result.message.contains("Conexion fijada en la clase: `logs`"))
+        assertTrue(content.contains("package demo.database.migrations"))
+        assertTrue(content.contains("override val connectionName: String = \"logs\""))
     }
 }
