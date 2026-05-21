@@ -120,6 +120,36 @@ open class Request(
     private val mutableRouteParams = linkedMapOf<String, String>().apply { putAll(routeParams) }
     private val mutableAttributes = linkedMapOf<String, Any?>().apply { putAll(attributes) }
 
+    open fun copy(
+        app: Application = this.app,
+        method: String = this.method,
+        target: String = this.target,
+        path: String = this.path,
+        queryParams: Map<String, String> = this.mutableQueryParams.toMap(),
+        body: Map<String, String> = this.mutableBody.toMap(),
+        headers: Map<String, String> = this.mutableHeaders.toMap(),
+        files: Map<String, UploadedFile> = this.mutableFiles.toMap(),
+        routeParams: Map<String, String> = this.mutableRouteParams.toMap(),
+        rawBody: String = this.rawBody,
+        remoteAddress: String? = this.remoteAddress,
+        attributes: Map<String, Any?> = this.mutableAttributes.toMap()
+    ): Request {
+        return Request(
+            app = app,
+            method = method,
+            target = target,
+            path = path,
+            queryParams = queryParams,
+            body = body,
+            headers = headers,
+            files = files,
+            routeParams = routeParams,
+            rawBody = rawBody,
+            remoteAddress = remoteAddress,
+            attributes = attributes
+        )
+    }
+
     open val queryParams: Map<String, String>
         get() = mutableQueryParams.toMap()
 

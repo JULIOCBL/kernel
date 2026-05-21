@@ -631,6 +631,147 @@ En otras palabras:
 - solo `desktop` reacciona a links externos y a segunda instancia;
 - `api` existe como router interno, no como protocolo publico del SO.
 
+## Multi-surface Opcional
+
+El kernel ya puede registrar un `SurfaceManager` opcional para aplicaciones
+desktop que necesiten mas de una superficie visual dentro del mismo proceso.
+
+La regla de arquitectura es:
+
+- una app puede no registrar surfaces y usar solo DB, API o desktop simple;
+- si necesita ventanas auxiliares o pantallas adicionales, registra
+  `SurfaceServiceProvider` o su propio manager;
+- las surfaces pueden ser pasivas o interactivas;
+- una surface interactiva no debe mutar el estado critico directamente: emite
+  `SurfaceAction` y un `SurfaceCoordinator` decide que hacer.
+
+### Ejemplo Pasivo
+
+Una app abre una surface secundaria que solo proyecta estado:
+
+```kotlin
+import kernel.multisurface.SurfaceDescriptor
+import kernel.multisurface.SurfaceProjection
+import kernel.multisurface.SurfaceRole
+import kernel.multisurface.surfaceManager
+
+val surfaces = surfaceManager()
+
+surfaces.openSurface(
+    descriptor = SurfaceDescriptor(
+        id = "secondary",
+        role = SurfaceRole.SECONDARY,
+        title = "Auxiliary Surface"
+    ),
+    initialProjection = SurfaceProjection(
+        viewId = "overview",
+        headline = "Welcome",
+        message = "Waiting for activity"
+    )
+)
+
+surfaces.showProjection(
+    surfaceId = "secondary",
+    projection = SurfaceProjection(
+        viewId = "ads",
+        headline = "Promotions",
+        message = "Projecting content from the primary surface"
+    )
+)
+```
+
+### Ejemplo Interactivo
+
+Una surface tactil puede disparar acciones controladas:
+
+```kotlin
+import kernel.multisurface.BasicSurfaceAction
+import kernel.multisurface.SurfaceCapabilities
+import kernel.multisurface.SurfaceDescriptor
+import kernel.multisurface.SurfaceInteractionMode
+import kernel.multisurface.SurfaceRole
+import kernel.multisurface.surfaceManager
+
+val surfaces = surfaceManager()
+
+surfaces.openSurface(
+    descriptor = SurfaceDescriptor(
+        id = "touch-kiosk",
+        role = SurfaceRole.AUXILIARY,
+        title = "Touch Kiosk",
+        capabilities = SurfaceCapabilities(
+            interactionMode = SurfaceInteractionMode.INTERACTIVE,
+            canDispatchActions = true
+        )
+    )
+)
+
+surfaces.dispatchAction(
+    surfaceId = "touch-kiosk",
+    action = BasicSurfaceAction(
+        type = "add-product",
+        payload = mapOf("productId" to "sku-001")
+    )
+)
+```
+
+En ese escenario la surface no toca el estado critico directamente. Solo emite
+la intencion y el `SurfaceCoordinator` de la app decide si la acepta, la valida
+y como actualiza el estado global compartido.
+
+## Child Windows Opcional
+
+El kernel tambien puede registrar ventanas hijas funcionales con una base
+reutilizable en `kernel.windowing`.
+
+La pieza clave es `WindowCatalog`:
+
+- lista las pantallas hijas disponibles;
+- expone sus caracteristicas base;
+- permite resolver una configuracion concreta antes de abrir una instancia.
+
+Ejemplo:
+
+```kotlin
+import kernel.windowing.DefaultWindowManager
+import kernel.windowing.WindowCatalog
+import kernel.windowing.WindowDefinition
+import kernel.windowing.WindowLaunchOptions
+
+val catalog = WindowCatalog(
+    listOf(
+        WindowDefinition(
+            id = "example.form",
+            title = "Example Form",
+            widthDp = 860,
+            heightDp = 620,
+            defaultProps = mapOf("mode" to "create")
+        )
+    )
+)
+
+val manager = DefaultWindowManager(catalog)
+
+val definition = catalog.require("example.form")
+val descriptor = catalog.descriptorFor(
+    definitionId = definition.id,
+    instanceId = "preview",
+    options = WindowLaunchOptions(
+        props = mapOf("recordId" to "42")
+    )
+)
+
+manager.open(
+    definitionId = "example.form",
+    options = WindowLaunchOptions(
+        props = mapOf("recordId" to "42")
+    )
+)
+```
+
+Con eso una app puede obtener una lista de pantallas, leer sus caracteristicas
+y reutilizar esa configuracion al abrir o renderizar ventanas hijas.
+
 ## Documentación Detallada por Capa
 
 Para más detalles sobre cada componente del Kernel, consulta las siguientes guías técnicas:
