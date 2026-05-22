@@ -1,5 +1,6 @@
 package kernel.foundation
 
+import kernel.branding.BrandingManager
 import kernel.http.HttpRequestRuntime
 import kernel.session.Session
 import java.nio.file.Path
@@ -47,6 +48,11 @@ fun trans(
     default: String? = null
 ): String {
     return lang(key, replacements, locale, default)
+}
+
+fun branding(): BrandingManager {
+    return app().config.get("services.branding.manager") as? BrandingManager
+        ?: error("BrandingManager no esta registrado en services.branding.manager.")
 }
 
 fun `__`(
