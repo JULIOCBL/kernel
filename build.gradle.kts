@@ -8,7 +8,7 @@ plugins {
     application
 }
 
-group = "kernel"
+group = "com.github.JULIOCBL"
 version = "0.1.0"
 
 kotlin {
@@ -38,6 +38,10 @@ tasks.withType<KotlinCompile>().configureEach {
     }
 }
 
+tasks.withType<Jar>().configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 dependencies {
     implementation("com.zaxxer:HikariCP:6.2.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
@@ -65,6 +69,9 @@ tasks.jar {
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
+            groupId = project.group.toString()
+            artifactId = project.name
+            version = project.version.toString()
             from(components["java"])
 
             pom {
