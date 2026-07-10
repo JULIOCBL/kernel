@@ -35,14 +35,26 @@ internal object RouteModuleLoader {
 
         error(
             "No se encontraron rutas API para `${routeNamespace(app)}`. " +
-                "Define `Internal.kt` o `Api.kt` con sus loaders oficiales."
+                    "Define `Internal.kt` o `Api.kt` con sus loaders oficiales."
         )
     }
 
     private fun routeNamespace(app: Application): String {
         val appNamespace = app.config.string("app.namespace").trim()
+
         require(appNamespace.isNotBlank()) {
-            "La app debe definir `app.namespace` para cargar rutas por convencion."
+            "\n\n" + """
+            [Kotavel] Error de configuración
+
+            No se encontró la configuración `app.namespace`.
+
+            Verifica que:
+            • Exista el archivo `AppConfig.kt` y que registre la configuración `app.namespace`.
+            • `AppConfig` esté registrado en `AppConfigFiles.kt`.
+            • Exista el archivo `.env`.
+            • La variable de entorno `ROUTING_DESKTOP_SCHEME` esté definida.
+            `app.namespace` es una configuración obligatoria para que Kernel pueda descubrir y cargar las rutas por convención.
+        """.trimIndent() + "\n\n"
         }
 
         return "$appNamespace.routes"
@@ -86,8 +98,8 @@ internal object RouteModuleLoader {
 
         val routerMethod = routeClass.methods.firstOrNull { method ->
             method.name == configuredMethodName &&
-                method.parameterCount == 1 &&
-                method.parameterTypes.single().isAssignableFrom(router::class.java)
+                    method.parameterCount == 1 &&
+                    method.parameterTypes.single().isAssignableFrom(router::class.java)
         }
 
         if (routerMethod != null) {
@@ -101,7 +113,7 @@ internal object RouteModuleLoader {
 
         error(
             "No se pudo cargar `$configuredClassName#$configuredMethodName`. " +
-                "Debe ser una funcion top-level sin argumentos o aceptar ${router::class.simpleName}."
+                    "Debe ser una funcion top-level sin argumentos o aceptar ${router::class.simpleName}."
         )
     }
 }
