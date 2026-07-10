@@ -46,7 +46,7 @@ internal object RouteModuleLoader {
             "\n\n" + """
             [Kotavel] Error de configuración
 
-            No se encontró la configuración `app.namespace`.
+            No se encontró la configuración `app.namespace` : ${appNamespace}.
 
             Verifica que:
             • Exista el archivo `AppConfig.kt` y que registre la configuración `app.namespace`.
